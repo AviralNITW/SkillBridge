@@ -1,0 +1,6253 @@
+Tab 1
+SkillBridge Module 1: Identity & Access Management (IAM)
+Module Information
+Attribute
+Value
+Module Name
+Identity & Access Management (IAM)
+Module Code
+IAM-001
+Priority
+Critical
+Phase
+MVP
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+Authentication
+JWT + Refresh Token
+Authorization
+RBAC (Role Based Access Control)
+
+1. Module Overview
+The Identity & Access Management Module is responsible for authentication, authorization, user identity verification, account lifecycle management, session management, and security enforcement across the SkillBridge platform.
+This module acts as the foundation of the entire platform because every protected operation depends on authenticated and authorized users.
+The module supports multiple user roles:
+Student
+School Administrator
+Company
+Mentor
+Platform Admin
+
+2. Business Objectives
+BO-IAM-001
+Provide secure registration for all user types.
+BO-IAM-002
+Ensure only verified users can access protected resources.
+BO-IAM-003
+Enforce role-based access control.
+BO-IAM-004
+Provide secure login and session management.
+BO-IAM-005
+Support password recovery and account security.
+BO-IAM-006
+Maintain audit trail for security-sensitive actions.
+
+3. Functional Requirements
+FR-IAM-001 User Registration
+The system shall allow new users to register.
+Required Inputs:
+First Name
+Last Name
+Email
+Password
+Role
+Roles:
+STUDENT
+SCHOOL
+COMPANY
+MENTOR
+Validation:
+Email must be unique
+Password must satisfy security policy
+Role must be valid
+Output:
+User Created
+Verification Email Sent
+
+FR-IAM-002 Email Verification
+The system shall verify user email addresses using secure tokens.
+Verification Link Validity:
+24 Hours
+After verification:
+email_verified = true
+account_status = ACTIVE
+
+FR-IAM-003 Login
+The system shall authenticate users.
+Input:
+Email
+Password
+Output:
+Access Token
+Refresh Token
+User Profile Summary
+Performance:
+< 1 second
+
+FR-IAM-004 Logout
+The system shall invalidate active sessions.
+Actions:
+Refresh token revoked
+Redis session deleted
+
+FR-IAM-005 Password Reset
+User requests password reset.
+Flow:
+Submit Email
+Receive Reset Link
+Verify Token
+Set New Password
+Reset Token Validity:
+15 Minutes
+
+FR-IAM-006 Refresh Access Token
+Generate new access token using refresh token.
+
+FR-IAM-007 Change Password
+Authenticated users may change password.
+Requirements:
+Old Password Required
+New Password Validation
+
+FR-IAM-008 Session Management
+Users can view active sessions.
+Information:
+Device
+Browser
+IP Address
+Login Time
+
+FR-IAM-009 Account Lockout
+After:
+5 Failed Attempts
+Lock Duration:
+15 Minutes
+
+FR-IAM-010 RBAC Enforcement
+All protected routes shall verify:
+Authentication
+User Role
+Permissions
+
+4. User Stories
+Student
+As a student,I want to register,so that I can apply for opportunities.
+Company
+As a company,I want secure login,so that I can manage internships.
+Mentor
+As a mentor,I want role-specific access,so that I only see relevant features.
+Admin
+As an admin,I want account management controls,so that I can maintain platform security.
+
+5. Use Cases
+UC-001 Register User
+Actor:Guest User
+Preconditions:User not registered.
+Flow:
+Open Registration Page
+Fill Details
+Submit Form
+Validate Data
+Create Account
+Send Verification Email
+Postconditions:Account Created
+
+UC-002 Login
+Actor:Registered User
+Flow:
+Enter Email
+Enter Password
+Validate Credentials
+Generate Tokens
+Create Session
+Redirect Dashboard
+
+UC-003 Forgot Password
+Actor:Registered User
+Flow:
+Enter Email
+Generate Reset Token
+Send Email
+Reset Password
+
+6. Database Design
+users
+id UUID PK
+first_name VARCHAR(100)
+last_name VARCHAR(100)
+email VARCHAR(255) UNIQUE
+password_hash TEXT
+role VARCHAR(50)
+status VARCHAR(30)
+email_verified BOOLEAN
+failed_login_attempts INT
+locked_until TIMESTAMP
+created_at TIMESTAMP
+updated_at TIMESTAMP
+
+refresh_tokens
+id UUID PK
+user_id UUID FK
+token_hash TEXT
+expires_at TIMESTAMP
+revoked BOOLEAN
+created_at TIMESTAMP
+
+email_verifications
+id UUID PK
+user_id UUID FK
+token_hash TEXT
+expires_at TIMESTAMP
+verified BOOLEAN
+
+password_resets
+id UUID PK
+user_id UUID FK
+token_hash TEXT
+expires_at TIMESTAMP
+used BOOLEAN
+
+user_sessions
+id UUID PK
+user_id UUID FK
+ip_address VARCHAR(50)
+device_info TEXT
+browser_info TEXT
+login_time TIMESTAMP
+last_activity TIMESTAMP
+is_active BOOLEAN
+
+
+7. API Contracts
+Base URL
+/api/v1/auth
+Register
+POST /register
+Verify Email
+GET /verify-email/:token
+Login
+POST /login
+Refresh Token
+POST /refresh
+Logout
+POST /logout
+Forgot Password
+POST /forgot-password
+Reset Password
+POST /reset-password
+Change Password
+PUT /change-password
+Active Sessions
+GET /sessions
+Revoke Session
+DELETE /sessions/:id
+
+8. JWT Design
+Access Token
+Expiry:15 Minutes
+Payload:
+{
+  "userId": "uuid",
+  "email": "user@email.com",
+  "role": "STUDENT"
+}
+
+Refresh Token
+Expiry:
+7 Days
+Stored:
+Redis + PostgreSQL
+
+9. RBAC Matrix
+Action
+Student
+School
+Company
+Mentor
+Admin
+Register
+Yes
+Yes
+Yes
+Yes
+No
+Login
+Yes
+Yes
+Yes
+Yes
+Yes
+View Profile
+Yes
+Yes
+Yes
+Yes
+Yes
+Update Profile
+Yes
+Yes
+Yes
+Yes
+Yes
+Manage Users
+No
+No
+No
+No
+Yes
+Suspend Users
+No
+No
+No
+No
+Yes
+
+10. Security Design
+Password Hashing
+Algorithm:
+bcrypt
+Cost Factor:
+12
+
+Token Security
+Access Token:15 Minutes
+Refresh Token:7 Days
+
+Rate Limiting
+Anonymous:20 Requests/Minute
+Authenticated:100 Requests/Minute
+
+Account Lockout
+5 Failed Attempts
+15 Minute Lock
+
+11. Redis Design
+Keys
+session:{userId}
+
+refresh:{tokenId}
+
+otp:{email}
+
+rate_limit:{ip}
+
+blacklist:{jwt}
+
+TTL
+Session:30 Minutes
+Refresh:7 Days
+OTP:15 Minutes
+
+12. Folder Structure (Node.js)
+src/
+
+modules/
+
+auth/
+
+controllers/
+auth.controller.js
+
+services/
+auth.service.js
+
+repositories/
+auth.repository.js
+
+routes/
+auth.routes.js
+
+validators/
+auth.validator.js
+
+middlewares/
+auth.middleware.js
+
+utils/
+
+templates/
+
+tests/
+
+
+13. Audit Events
+Capture:
+Registration
+Login
+Logout
+Failed Login
+Password Reset
+Password Change
+Account Lock
+Stored:
+audit_logs table
+
+14. Acceptance Criteria
+AC-001
+User can register successfully.
+AC-002
+Verification email delivered.
+AC-003
+Verified users can login.
+AC-004
+Invalid credentials rejected.
+AC-005
+Locked accounts cannot login.
+AC-006
+Password reset works correctly.
+AC-007
+RBAC enforced on all protected routes.
+AC-008
+JWT expires correctly.
+AC-009
+Refresh token rotation works.
+AC-010
+Sessions are revocable.
+
+15. Future Enhancements
+Phase 2
+Google OAuth
+GitHub OAuth
+LinkedIn OAuth
+Multi-Factor Authentication
+Biometric Authentication
+SSO Integration
+Device Trust Management
+Risk-Based Authentication
+Module Status:Architecture Frozen for MVPVersion: 1.0Ready for Antigravity Code Generation
+
+Tab 2
+SkillBridge Module 2: Student Management
+Module Information
+Attribute
+Value
+Module Name
+Student Management
+Module Code
+STM-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+IAM Module
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Student Management Module manages the complete student lifecycle within SkillBridge.
+This module serves as the central profile system that stores academic information, skills, achievements, interests, certifications, projects, and employability-related data.
+The module acts as the source of truth for:
+Applications
+Portfolios
+Certificates
+Analytics
+Opportunity Matching
+
+2. Business Objectives
+BO-STM-001
+Allow students to create professional digital profiles.
+BO-STM-002
+Maintain verified academic and skill records.
+BO-STM-003
+Provide a centralized student profile for opportunities.
+BO-STM-004
+Support employability score generation.
+BO-STM-005
+Provide data for portfolio generation.
+
+3. Functional Requirements
+FR-STM-001 Create Student Profile
+The system shall allow students to create profiles after registration.
+Required Fields:
+First Name
+Last Name
+Date Of Birth
+Gender
+Bio
+Profile Picture
+
+FR-STM-002 Update Profile
+Students may update profile information.
+Editable Fields:
+Bio
+Skills
+Interests
+Education
+Social Links
+
+FR-STM-003 Skill Management
+Students shall manage skills.
+Operations:
+Add Skill
+Edit Skill
+Delete Skill
+Examples:
+React
+Node.js
+Java
+Communication
+Leadership
+
+FR-STM-004 Achievement Management
+Students shall manage achievements.
+Examples:
+Hackathon Winner
+Coding Contest Rank
+Academic Award
+
+FR-STM-005 Education Management
+Students shall manage educational records.
+Fields:
+Institution
+Degree
+Branch
+Start Year
+End Year
+CGPA
+
+FR-STM-006 Certificate Upload
+Students may upload certificates.
+Allowed Types:
+PDF
+JPG
+PNG
+Maximum Size:
+10 MB
+
+FR-STM-007 Project Management
+Students shall manage projects.
+Fields:
+Title
+Description
+Technologies
+GitHub Link
+Live URL
+
+FR-STM-008 Resume Upload
+Students may upload resumes.
+Allowed Types:
+PDF
+Maximum Size:
+10 MB
+
+FR-STM-009 Profile Completion Tracking
+System shall calculate profile completion percentage.
+Formula:
+Weighted Profile Score
+
+FR-STM-010 Employability Score
+System shall generate employability score.
+Range:
+0 – 100
+
+4. User Stories
+Student
+As a student,
+I want to create my profile,
+so that companies can evaluate me.
+
+Student
+As a student,
+I want to showcase my skills,
+so that I can receive better opportunities.
+
+Company
+As a company,
+I want complete student profiles,
+so that I can shortlist candidates effectively.
+
+5. Use Cases
+UC-STM-001 Create Profile
+Actor:
+Student
+Flow:
+Login
+Open Profile Page
+Enter Details
+Save Profile
+Result:
+Profile Created
+
+UC-STM-002 Add Skill
+Actor:
+Student
+Flow:
+Open Skills Section
+Add Skill
+Save
+Result:
+Skill Added
+
+UC-STM-003 Upload Resume
+Actor:
+Student
+Flow:
+Select PDF
+Upload File
+Validate
+Store in S3
+Result:
+Resume Available
+
+6. Database Design
+students
+id UUID PK
+user_id UUID FK
+first_name VARCHAR(100)
+last_name VARCHAR(100)
+date_of_birth DATE
+gender VARCHAR(20)
+bio TEXT
+profile_image_url TEXT
+portfolio_slug VARCHAR(255)
+employability_score INT
+profile_completion INT
+created_at TIMESTAMP
+updated_at TIMESTAMP
+
+
+student_skills
+id UUID PK
+student_id UUID FK
+skill_name VARCHAR(100)
+proficiency_level VARCHAR(20)
+years_of_experience INT
+
+
+student_education
+id UUID PK
+student_id UUID FK
+institution_name VARCHAR(255)
+degree VARCHAR(100)
+specialization VARCHAR(100)
+cgpa DECIMAL(4,2)
+start_year INT
+end_year INT
+
+
+student_achievements
+id UUID PK
+student_id UUID FK
+title VARCHAR(255)
+description TEXT
+achievement_date DATE
+
+
+student_projects
+id UUID PK
+student_id UUID FK
+title VARCHAR(255)
+description TEXT
+tech_stack TEXT
+github_url TEXT
+live_url TEXT
+
+
+student_certificates
+id UUID PK
+student_id UUID FK
+certificate_name VARCHAR(255)
+issuer VARCHAR(255)
+issue_date DATE
+certificate_url TEXT
+
+
+7. API Contracts
+Base URL
+/api/v1/students
+Create Profile
+POST /profile
+Get Profile
+GET /profile
+Update Profile
+PUT /profile
+Add Skill
+POST /skills
+Update Skill
+PUT /skills/:id
+Delete Skill
+DELETE /skills/:id
+Add Achievement
+POST /achievements
+Add Education
+POST /education
+Add Project
+POST /projects
+Upload Resume
+POST /resume
+Upload Certificate
+POST /certificates
+
+8. Employability Score Logic
+Maximum Score = 100
+Education = 20
+Skills = 30
+Projects = 20
+Certificates = 15
+Achievements = 10
+Profile Completion = 5
+Formula:
+Employability Score =
+Education +
+Skills +
+Projects +
+Certificates +
+Achievements +
+Profile Completion
+
+
+9. Profile Completion Logic
+Profile Picture = 10%
+Bio = 10%
+Education = 20%
+Skills = 20%
+Projects = 20%
+Certificates = 10%
+Resume = 10%
+Total = 100%
+
+10. Redis Design
+Keys
+student:{id}
+
+student_profile:{id}
+
+student_dashboard:{id}
+
+TTL
+15 Minutes
+
+11. Folder Structure
+modules/
+
+students/
+
+controllers/
+student.controller.js
+
+services/
+student.service.js
+
+repositories/
+student.repository.js
+
+routes/
+student.routes.js
+
+validators/
+student.validator.js
+
+tests/
+
+
+12. Security Rules
+Students can only modify:
+Their Own Profile
+Their Own Skills
+Their Own Projects
+Admin can access all profiles.
+Companies can only view public student data.
+
+13. Audit Events
+Capture:
+Profile Created
+Profile Updated
+Skill Added
+Achievement Added
+Resume Uploaded
+Certificate Uploaded
+
+14. Acceptance Criteria
+AC-001
+Student can create profile.
+AC-002
+Student can update profile.
+AC-003
+Skills can be managed.
+AC-004
+Projects can be managed.
+AC-005
+Certificates can be uploaded.
+AC-006
+Resume upload works.
+AC-007
+Profile completion calculated correctly.
+AC-008
+Employability score calculated correctly.
+
+15. Future Enhancements
+Phase 2
+AI Resume Builder
+AI Skill Recommendation
+AI Career Guidance
+LinkedIn Import
+GitHub Profile Sync
+LeetCode Integration
+HackerRank Integration
+Module Status:Architecture Frozen for MVPVersion: 1.0Ready for Antigravity Code Generation
+
+Tab 3
+SkillBridge Module 3: Organization Management
+Module Information
+Attribute
+Value
+Module Name
+Organization Management
+Module Code
+ORG-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+IAM Module
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Organization Management Module manages all organizations participating in the SkillBridge ecosystem.
+Organizations include:
+Schools
+Colleges
+Universities
+Companies
+Startups
+NGOs
+Mentors
+Vocational Experts
+This module acts as the foundation for:
+Opportunity Creation
+Student Monitoring
+Internship Management
+Evaluations
+Reporting
+Without verified organizations, opportunities cannot be published on the platform.
+
+2. Business Objectives
+BO-ORG-001
+Enable organizations to join the SkillBridge ecosystem.
+BO-ORG-002
+Provide verified company and institution profiles.
+BO-ORG-003
+Allow institutions to manage students.
+BO-ORG-004
+Allow companies to publish opportunities.
+BO-ORG-005
+Allow mentors to evaluate students.
+BO-ORG-006
+Support SaaS subscription plans.
+
+3. Functional Requirements
+FR-ORG-001 School Registration
+Schools shall create institution profiles.
+Required Fields:
+Institution Name
+Email
+Address
+Website
+Contact Person
+Contact Number
+
+FR-ORG-002 Company Registration
+Companies shall create organization profiles.
+Required Fields:
+Company Name
+Industry
+Website
+Company Size
+Headquarters Location
+
+FR-ORG-003 Mentor Registration
+Mentors shall create mentor profiles.
+Required Fields:
+Full Name
+Specialization
+Years Of Experience
+LinkedIn URL
+
+FR-ORG-004 Profile Management
+Organizations shall update profile information.
+
+FR-ORG-005 Verification Workflow
+Organizations must be verified before publishing opportunities.
+Verification States:
+Pending
+Approved
+Rejected
+Suspended
+
+FR-ORG-006 Student Association
+Schools can associate students with institutions.
+
+FR-ORG-007 Subscription Management
+Organizations shall subscribe to SkillBridge plans.
+Plans:
+Starter
+Growth
+Enterprise
+
+FR-ORG-008 Team Members
+Organizations can add team members.
+Examples:
+HR Manager
+Recruiter
+Placement Officer
+
+FR-ORG-009 Organization Dashboard
+Dashboard Metrics:
+Opportunities Posted
+Applications Received
+Active Students
+Certificates Issued
+
+FR-ORG-010 Organization Search
+Students shall search verified organizations.
+
+4. User Stories
+School
+As a school,
+I want to onboard students,
+so that I can monitor their progress.
+
+Company
+As a company,
+I want to publish opportunities,
+so that I can hire talented students.
+
+Mentor
+As a mentor,
+I want to evaluate students,
+so that I can provide feedback.
+
+Admin
+As an admin,
+I want to verify organizations,
+so that only legitimate entities use the platform.
+
+5. Use Cases
+UC-ORG-001 Register Company
+Actor:
+Company
+Flow:
+Register Account
+Create Company Profile
+Upload Verification Documents
+Submit Verification Request
+Admin Review
+Result:
+Company Approved
+
+UC-ORG-002 Register School
+Actor:
+School
+Flow:
+Register
+Create School Profile
+Add Student Records
+Activate Subscription
+Result:
+School Operational
+
+UC-ORG-003 Verify Organization
+Actor:
+Admin
+Flow:
+View Request
+Review Documents
+Approve / Reject
+Result:
+Verification Status Updated
+
+6. Database Design
+organizations
+id UUID PK
+user_id UUID FK
+organization_type VARCHAR(50)
+name VARCHAR(255)
+email VARCHAR(255)
+phone VARCHAR(20)
+website TEXT
+address TEXT
+description TEXT
+verification_status VARCHAR(30)
+subscription_plan VARCHAR(30)
+created_at TIMESTAMP
+updated_at TIMESTAMP
+
+
+schools
+id UUID PK
+organization_id UUID FK
+institution_type VARCHAR(50)
+principal_name VARCHAR(255)
+student_count INT
+
+
+companies
+id UUID PK
+organization_id UUID FK
+industry VARCHAR(100)
+company_size VARCHAR(50)
+headquarters VARCHAR(255)
+founded_year INT
+verified BOOLEAN
+
+
+mentors
+id UUID PK
+user_id UUID FK
+specialization VARCHAR(255)
+experience_years INT
+linkedin_url TEXT
+bio TEXT
+verified BOOLEAN
+
+
+organization_members
+id UUID PK
+organization_id UUID FK
+user_id UUID FK
+role VARCHAR(100)
+is_primary BOOLEAN
+
+
+subscriptions
+id UUID PK
+organization_id UUID FK
+plan_name VARCHAR(50)
+start_date DATE
+end_date DATE
+status VARCHAR(30)
+amount DECIMAL(10,2)
+
+
+7. API Contracts
+Base URL
+/api/v1/organizations
+
+Create Organization
+POST /create
+Get Organization
+GET /:id
+Update Organization
+PUT /:id
+Upload Verification Docs
+POST /verification-documents
+Submit Verification
+POST /submit-verification
+Get Dashboard
+GET /dashboard
+Add Team Member
+POST /members
+Get Team Members
+GET /members
+
+8. Organization States
+Draft
+ ↓
+Pending Verification
+ ↓
+Approved
+ ↓
+Active
+
+Alternative Paths
+
+Pending Verification
+ ↓
+Rejected
+
+Approved
+ ↓
+Suspended
+
+
+9. Subscription Plans
+Starter
+Students Supported:
+100
+Features:
+Basic Dashboard
+Opportunity Posting
+Student Tracking
+
+Growth
+Students Supported:
+1000
+Features:
+Analytics
+Reports
+Advanced Search
+
+Enterprise
+Students Supported:
+Unlimited
+Features:
+Custom Branding
+Dedicated Support
+Advanced Reporting
+
+10. RBAC Matrix
+Action
+School
+Company
+Mentor
+Admin
+Create Profile
+Yes
+Yes
+Yes
+Yes
+Update Profile
+Yes
+Yes
+Yes
+Yes
+Publish Opportunity
+No
+Yes
+Yes
+Yes
+View Students
+Yes
+No
+Limited
+Yes
+Evaluate Students
+No
+No
+Yes
+Yes
+Verify Organization
+No
+No
+No
+Yes
+Manage Subscription
+Yes
+Yes
+No
+Yes
+
+11. Redis Design
+Keys
+organization:{id}
+
+company:{id}
+
+school:{id}
+
+mentor:{id}
+
+organization_dashboard:{id}
+
+TTL
+15 Minutes
+
+12. Folder Structure
+modules/
+
+organizations/
+
+controllers/
+organization.controller.js
+
+services/
+organization.service.js
+
+repositories/
+organization.repository.js
+
+routes/
+organization.routes.js
+
+validators/
+organization.validator.js
+
+tests/
+
+
+13. Security Rules
+Organizations can only manage their own data.
+Verification approval requires Admin role.
+Only verified organizations may create opportunities.
+Subscription expiry disables premium features.
+
+14. Audit Events
+Capture:
+Organization Created
+Organization Updated
+Verification Submitted
+Verification Approved
+Verification Rejected
+Subscription Activated
+Team Member Added
+
+15. Acceptance Criteria
+AC-001
+School registration works.
+AC-002
+Company registration works.
+AC-003
+Mentor registration works.
+AC-004
+Verification workflow functions correctly.
+AC-005
+Subscription plans activate correctly.
+AC-006
+Only verified organizations can publish opportunities.
+AC-007
+Organization dashboard loads successfully.
+
+16. Future Enhancements
+Phase 2
+Razorpay Integration
+GST Billing
+Organization KYC
+LinkedIn Company Verification
+Multi-Campus Support
+Branch-Level Management
+Enterprise SSO
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 4
+SkillBridge Module 4: Opportunity Management
+Module Information
+Attribute
+Value
+Module Name
+Opportunity Management
+Module Code
+OPP-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+IAM, Student, Organization
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Opportunity Management Module is the core business engine of SkillBridge.
+It enables verified organizations to create, publish, manage, and monitor opportunities available to students.
+Opportunities may include:
+Internships
+Apprenticeships
+Freelance Projects
+Community Projects
+Research Projects
+Skill Development Programs
+Volunteer Programs
+This module acts as the marketplace connecting students with organizations.
+
+2. Business Objectives
+BO-OPP-001
+Provide a centralized opportunity marketplace.
+BO-OPP-002
+Enable verified organizations to publish opportunities.
+BO-OPP-003
+Allow students to discover relevant opportunities.
+BO-OPP-004
+Improve employability through practical experience.
+BO-OPP-005
+Support internship and apprenticeship management.
+
+3. Functional Requirements
+FR-OPP-001 Create Opportunity
+Verified organizations shall create opportunities.
+Required Fields:
+Title
+Description
+Category
+Skills Required
+Location
+Mode
+Duration
+Deadline
+
+FR-OPP-002 Save Draft
+Organizations may save opportunities as drafts.
+
+FR-OPP-003 Publish Opportunity
+Organizations may publish opportunities.
+Conditions:
+Organization Verified
+Required Fields Complete
+
+FR-OPP-004 Update Opportunity
+Organizations may update opportunities.
+Restrictions:
+Not Archived
+Not Closed
+
+FR-OPP-005 Archive Opportunity
+Organizations may archive opportunities.
+Archived opportunities become hidden.
+
+FR-OPP-006 Search Opportunities
+Students shall search opportunities.
+Search Parameters:
+Title
+Skills
+Organization
+Category
+
+FR-OPP-007 Filter Opportunities
+Filters:
+Remote
+Hybrid
+Onsite
+Paid
+Unpaid
+Internship
+Apprenticeship
+Duration
+
+FR-OPP-008 Bookmark Opportunity
+Students may bookmark opportunities.
+
+FR-OPP-009 Opportunity Analytics
+Organizations may view:
+Views
+Applications
+Acceptance Rate
+
+FR-OPP-010 Opportunity Expiry
+Expired opportunities shall automatically close.
+
+4. User Stories
+Student
+As a student,
+I want to search opportunities,
+so that I can gain practical experience.
+
+Company
+As a company,
+I want to publish internships,
+so that I can attract talent.
+
+Mentor
+As a mentor,
+I want to offer projects,
+so that students can learn from real-world tasks.
+
+5. Opportunity Types
+INTERNSHIP
+
+APPRENTICESHIP
+
+RESEARCH_PROJECT
+
+FREELANCE_PROJECT
+
+COMMUNITY_PROJECT
+
+VOLUNTEER_PROGRAM
+
+SKILL_PROGRAM
+
+
+6. Opportunity Lifecycle
+Draft
+ ↓
+Pending Approval
+ ↓
+Published
+ ↓
+Applications Open
+ ↓
+Closed
+ ↓
+Archived
+
+Alternative Path
+Draft
+ ↓
+Deleted
+
+
+7. Database Design
+opportunities
+id UUID PK
+
+organization_id UUID FK
+
+created_by UUID FK
+
+title VARCHAR(255)
+
+slug VARCHAR(255)
+
+description TEXT
+
+category VARCHAR(100)
+
+mode VARCHAR(30)
+
+location VARCHAR(255)
+
+duration_weeks INT
+
+stipend DECIMAL(10,2)
+
+currency VARCHAR(10)
+
+openings INT
+
+deadline TIMESTAMP
+
+status VARCHAR(30)
+
+created_at TIMESTAMP
+
+updated_at TIMESTAMP
+
+
+opportunity_skills
+id UUID PK
+
+opportunity_id UUID FK
+
+skill_name VARCHAR(100)
+
+
+opportunity_tags
+id UUID PK
+
+opportunity_id UUID FK
+
+tag_name VARCHAR(100)
+
+
+opportunity_bookmarks
+id UUID PK
+
+student_id UUID FK
+
+opportunity_id UUID FK
+
+created_at TIMESTAMP
+
+
+opportunity_views
+id UUID PK
+
+student_id UUID FK
+
+opportunity_id UUID FK
+
+viewed_at TIMESTAMP
+
+
+8. API Contracts
+Base URL
+/api/v1/opportunities
+
+Create Opportunity
+POST /
+
+Save Draft
+POST /draft
+
+Publish Opportunity
+POST /:id/publish
+
+Update Opportunity
+PUT /:id
+
+Archive Opportunity
+PUT /:id/archive
+
+Get Opportunity
+GET /:id
+
+Search Opportunities
+GET /
+Query Params
+?page=1
+
+&limit=20
+
+&search=nodejs
+
+&category=internship
+
+&mode=remote
+
+&location=india
+
+
+Bookmark Opportunity
+POST /:id/bookmark
+
+Remove Bookmark
+DELETE /:id/bookmark
+
+Get My Opportunities
+GET /my-opportunities
+
+9. Search Design
+Search Fields
+Title
+Description
+Skills
+Tags
+Organization Name
+Future Upgrade:
+PostgreSQL Full Text Search
+
+ElasticSearch
+
+
+10. Recommendation Logic (MVP)
+Recommended Opportunities based on:
+Student Skills
+Education
+Past Applications
+Bookmarks
+Simple Matching Formula:
+Matching Score
+
+=
+
+Skill Match (60%)
+
+Category Match (20%)
+
+Location Preference (20%)
+
+
+11. Analytics Metrics
+Track:
+Student Side
+Viewed Opportunities
+Saved Opportunities
+Applied Opportunities
+Organization Side
+Total Views
+Total Applications
+Conversion Rate
+Acceptance Rate
+
+12. Redis Design
+Keys
+opportunity:{id}
+
+opportunity_search:{query}
+
+featured_opportunities
+
+organization_opportunities:{id}
+
+TTL
+Opportunity = 30 Minutes
+
+Search Results = 10 Minutes
+
+Featured = 5 Minutes
+
+
+13. Background Jobs
+Cron Jobs
+Expired Opportunity Cleanup
+Runs Every Hour
+Action:
+Close Expired Opportunities
+
+Featured Opportunity Refresh
+Runs Daily
+
+Analytics Aggregation
+Runs Every 15 Minutes
+
+14. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+View Opportunity
+Yes
+Yes
+Yes
+Yes
+Yes
+Create Opportunity
+No
+Yes
+Yes
+No
+Yes
+Publish Opportunity
+No
+Yes
+Yes
+No
+Yes
+Archive Opportunity
+No
+Yes
+Yes
+No
+Yes
+Moderate Opportunity
+No
+No
+No
+No
+Yes
+Bookmark Opportunity
+Yes
+No
+No
+No
+No
+
+15. Folder Structure
+modules/
+
+opportunities/
+
+controllers/
+opportunity.controller.js
+
+services/
+opportunity.service.js
+
+repositories/
+opportunity.repository.js
+
+routes/
+opportunity.routes.js
+
+validators/
+opportunity.validator.js
+
+jobs/
+opportunity.jobs.js
+
+tests/
+
+
+16. Security Rules
+Only verified organizations may publish.
+Students cannot edit opportunities.
+Archived opportunities are read-only.
+Deleted opportunities cannot be restored.
+Rate Limit:
+100 Requests / Minute
+
+17. Audit Events
+Capture:
+Opportunity Created
+Opportunity Updated
+Opportunity Published
+Opportunity Archived
+Opportunity Deleted
+Opportunity Viewed
+Opportunity Bookmarked
+
+18. Acceptance Criteria
+AC-001
+Verified organizations can create opportunities.
+AC-002
+Draft saving works correctly.
+AC-003
+Opportunity publishing works.
+AC-004
+Search returns correct results.
+AC-005
+Filters work correctly.
+AC-006
+Bookmarks work correctly.
+AC-007
+Expired opportunities auto-close.
+AC-008
+Analytics update correctly.
+
+19. Future Enhancements
+Phase 2
+AI Opportunity Recommendation
+AI Skill Matching
+Resume Matching
+Candidate Ranking
+ElasticSearch
+Location Intelligence
+Opportunity Promotion System
+Sponsored Listings
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 5
+SkillBridge Module 5: Application Management
+Module Information
+Attribute
+Value
+Module Name
+Application Management
+Module Code
+APP-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+IAM, Student, Organization, Opportunity
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Application Management Module is the bridge between students and opportunities.
+This module enables students to apply for opportunities and allows organizations to review, shortlist, accept, reject, and manage applicants.
+This is the most important workflow module because every internship, apprenticeship, project, task, assessment, certificate, and portfolio entry originates from an application.
+
+2. Business Objectives
+BO-APP-001
+Allow students to apply for opportunities.
+BO-APP-002
+Enable organizations to manage applicants.
+BO-APP-003
+Provide application tracking.
+BO-APP-004
+Prevent duplicate applications.
+BO-APP-005
+Maintain transparent recruitment workflow.
+
+3. Functional Requirements
+FR-APP-001 Apply for Opportunity
+Students shall apply for active opportunities.
+Conditions:
+Authenticated User
+Student Profile Exists
+Opportunity Published
+Application Deadline Not Passed
+
+FR-APP-002 Duplicate Prevention
+Students cannot apply more than once to the same opportunity.
+
+FR-APP-003 Application Tracking
+Students can track application status.
+
+FR-APP-004 Application Review
+Organizations can review applicants.
+
+FR-APP-005 Shortlisting
+Organizations can shortlist applicants.
+
+FR-APP-006 Acceptance
+Organizations can accept applicants.
+
+FR-APP-007 Rejection
+Organizations can reject applicants.
+
+FR-APP-008 Withdraw Application
+Students can withdraw applications before acceptance.
+
+FR-APP-009 Bulk Actions
+Organizations can:
+Accept Multiple Applications
+Reject Multiple Applications
+Shortlist Multiple Applications
+
+FR-APP-010 Application Notes
+Organizations can add internal notes.
+Visible To:
+Organization Only
+
+4. Application Lifecycle
+Draft
+ ↓
+Submitted
+ ↓
+Under Review
+ ↓
+Shortlisted
+ ↓
+Accepted
+ ↓
+In Progress
+ ↓
+Completed
+
+Alternative Path
+Submitted
+ ↓
+Under Review
+ ↓
+Rejected
+
+Student Action
+Submitted
+ ↓
+Withdrawn
+
+
+5. User Stories
+Student
+As a student,
+I want to apply for opportunities,
+so that I can gain industry experience.
+
+Company
+As a company,
+I want to review applicants,
+so that I can select the best candidates.
+
+Mentor
+As a mentor,
+I want to track selected students,
+so that I can manage projects effectively.
+
+6. Database Design
+applications
+id UUID PK
+
+student_id UUID FK
+
+opportunity_id UUID FK
+
+status VARCHAR(50)
+
+cover_letter TEXT
+
+resume_url TEXT
+
+applied_at TIMESTAMP
+
+updated_at TIMESTAMP
+
+
+application_status_history
+id UUID PK
+
+application_id UUID FK
+
+old_status VARCHAR(50)
+
+new_status VARCHAR(50)
+
+changed_by UUID
+
+remarks TEXT
+
+changed_at TIMESTAMP
+
+
+application_notes
+id UUID PK
+
+application_id UUID FK
+
+organization_id UUID FK
+
+note TEXT
+
+created_by UUID
+
+created_at TIMESTAMP
+
+
+7. Application Statuses
+DRAFT
+
+SUBMITTED
+
+UNDER_REVIEW
+
+SHORTLISTED
+
+ACCEPTED
+
+REJECTED
+
+WITHDRAWN
+
+IN_PROGRESS
+
+COMPLETED
+
+
+8. API Contracts
+Base URL
+/api/v1/applications
+
+Apply
+POST /
+
+Get My Applications
+GET /my-applications
+
+Get Application
+GET /:id
+
+Withdraw Application
+PUT /:id/withdraw
+
+Update Status
+PUT /:id/status
+Request
+{
+  "status": "SHORTLISTED"
+}
+
+
+Add Internal Note
+POST /:id/notes
+
+Get Applicants
+GET /opportunity/:opportunityId
+
+Bulk Status Update
+POST /bulk-update
+
+9. Application Rules
+Rule 1
+One student can apply only once to an opportunity.
+
+Rule 2
+Only published opportunities accept applications.
+
+Rule 3
+Expired opportunities reject new applications.
+
+Rule 4
+Accepted applications create internship participation records.
+
+Rule 5
+Rejected applications cannot move back to accepted.
+
+10. Resume Handling
+Application can use:
+Option A
+Profile Resume
+Option B
+Custom Resume Upload
+Allowed Types
+PDF
+
+Max Size
+10 MB
+
+
+11. Organization Dashboard Metrics
+Track:
+Total Applications
+Under Review
+Shortlisted
+Accepted
+Rejected
+Conversion Rate
+Formula
+Accepted
+
+/
+
+Total Applications
+
+×
+
+100
+
+
+12. Student Dashboard Metrics
+Track:
+Applications Submitted
+Applications Accepted
+Applications Rejected
+Active Internships
+Completion Rate
+
+13. Notification Events
+Triggered On
+Application Submitted
+Notify Organization
+
+Application Shortlisted
+Notify Student
+
+Application Accepted
+Notify Student
+
+Application Rejected
+Notify Student
+
+Application Withdrawn
+Notify Organization
+
+14. Redis Design
+Keys
+application:{id}
+
+student_applications:{studentId}
+
+opportunity_applications:{opportunityId}
+
+TTL
+15 Minutes
+
+
+15. Background Jobs
+Application Analytics Aggregation
+Every 15 Minutes
+
+Expired Draft Cleanup
+Daily
+
+Status Reminder Notifications
+Daily
+Examples:
+Pending Review > 7 Days
+Shortlisted > 14 Days
+
+16. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+Apply
+Yes
+No
+No
+No
+No
+Withdraw
+Yes
+No
+No
+No
+No
+View Own Applications
+Yes
+No
+No
+No
+Yes
+View Applicants
+No
+Yes
+Yes
+No
+Yes
+Update Status
+No
+Yes
+Yes
+No
+Yes
+Add Notes
+No
+Yes
+Yes
+No
+Yes
+Bulk Actions
+No
+Yes
+Yes
+No
+Yes
+
+17. Folder Structure
+modules/
+
+applications/
+
+controllers/
+application.controller.js
+
+services/
+application.service.js
+
+repositories/
+application.repository.js
+
+routes/
+application.routes.js
+
+validators/
+application.validator.js
+
+tests/
+
+
+18. Security Rules
+Students may access only their applications.
+Organizations may access only applications belonging to their opportunities.
+Status changes are audit logged.
+Duplicate applications are blocked at database level.
+Unique Constraint:
+(student_id, opportunity_id)
+
+
+19. Audit Events
+Capture:
+Application Submitted
+Application Withdrawn
+Status Changed
+Application Accepted
+Application Rejected
+Note Added
+
+20. Acceptance Criteria
+AC-001
+Students can apply successfully.
+AC-002
+Duplicate applications are blocked.
+AC-003
+Organizations can review applications.
+AC-004
+Status transitions work correctly.
+AC-005
+Students can track applications.
+AC-006
+Notifications are generated.
+AC-007
+Dashboard statistics are accurate.
+AC-008
+Application history is preserved.
+
+21. Future Enhancements
+Phase 2
+AI Resume Screening
+AI Candidate Ranking
+Auto Shortlisting
+ATS Integration
+Interview Scheduling
+Interview Feedback
+Candidate Scoring Engine
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 6
+SkillBridge Module 6: Task & Internship Execution Management
+Module Information
+Attribute
+Value
+Module Name
+Task & Internship Execution Management
+Module Code
+TASK-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+IAM, Organization, Opportunity, Application
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis, AWS S3
+
+1. Module Overview
+The Task & Internship Execution Management Module manages the complete execution lifecycle after a student gets selected.
+This module transforms an accepted application into an active internship, apprenticeship, project, or learning engagement.
+Responsibilities:
+Internship Assignment
+Task Creation
+Task Assignment
+Submission Management
+Progress Tracking
+Feedback Management
+This module is the operational heart of SkillBridge.
+
+2. Business Objectives
+BO-TASK-001
+Provide structured internship execution.
+BO-TASK-002
+Allow organizations to assign work.
+BO-TASK-003
+Enable students to submit deliverables.
+BO-TASK-004
+Track progress and completion.
+BO-TASK-005
+Support mentor reviews.
+
+3. Functional Requirements
+FR-TASK-001 Create Internship Record
+Accepted applications automatically create internship records.
+
+FR-TASK-002 Create Task
+Organizations may create tasks.
+Fields:
+Title
+Description
+Priority
+Deadline
+Max Marks
+
+FR-TASK-003 Assign Task
+Organizations assign tasks to students.
+Assignment Types:
+Individual
+Group (Future)
+
+FR-TASK-004 Update Task
+Task creators may update tasks.
+Restrictions:
+Not Completed
+Not Archived
+
+FR-TASK-005 Submit Task
+Students submit deliverables.
+Submission Types:
+File Upload
+GitHub Link
+Live URL
+Document URL
+
+FR-TASK-006 Resubmit Task
+Students may resubmit before deadline.
+
+FR-TASK-007 Review Submission
+Mentors and organizations review submissions.
+
+FR-TASK-008 Feedback Management
+Reviewers provide:
+Score
+Comments
+Suggestions
+
+FR-TASK-009 Progress Tracking
+Track:
+Assigned Tasks
+Completed Tasks
+Pending Tasks
+
+FR-TASK-010 Internship Completion
+Internship marked completed after all required tasks are completed.
+
+4. Internship Lifecycle
+Accepted Application
+ ↓
+Internship Created
+ ↓
+Tasks Assigned
+ ↓
+Work Submitted
+ ↓
+Reviewed
+ ↓
+Completed
+
+
+5. Task Lifecycle
+Draft
+ ↓
+Assigned
+ ↓
+In Progress
+ ↓
+Submitted
+ ↓
+Under Review
+ ↓
+Approved
+ ↓
+Completed
+
+Alternative Path
+Submitted
+ ↓
+Rejected
+ ↓
+Resubmitted
+ ↓
+Under Review
+
+
+6. User Stories
+Student
+As a student,
+I want to submit tasks,
+so that I can complete my internship successfully.
+
+Company
+As a company,
+I want to assign tasks,
+so that I can evaluate intern performance.
+
+Mentor
+As a mentor,
+I want to review submissions,
+so that I can provide feedback.
+
+7. Database Design
+internships
+id UUID PK
+
+application_id UUID FK
+
+student_id UUID FK
+
+organization_id UUID FK
+
+opportunity_id UUID FK
+
+start_date DATE
+
+end_date DATE
+
+status VARCHAR(30)
+
+created_at TIMESTAMP
+
+
+tasks
+id UUID PK
+
+internship_id UUID FK
+
+created_by UUID FK
+
+title VARCHAR(255)
+
+description TEXT
+
+priority VARCHAR(30)
+
+deadline TIMESTAMP
+
+max_score INT
+
+status VARCHAR(30)
+
+created_at TIMESTAMP
+
+
+task_assignments
+id UUID PK
+
+task_id UUID FK
+
+student_id UUID FK
+
+assigned_at TIMESTAMP
+
+
+submissions
+id UUID PK
+
+task_id UUID FK
+
+student_id UUID FK
+
+submission_type VARCHAR(30)
+
+submission_url TEXT
+
+remarks TEXT
+
+submitted_at TIMESTAMP
+
+
+submission_reviews
+id UUID PK
+
+submission_id UUID FK
+
+reviewer_id UUID FK
+
+score INT
+
+feedback TEXT
+
+reviewed_at TIMESTAMP
+
+
+8. API Contracts
+Base URL
+/api/v1/tasks
+
+Create Task
+POST /
+
+Assign Task
+POST /:id/assign
+
+Update Task
+PUT /:id
+
+Get Task
+GET /:id
+
+Get Internship Tasks
+GET /internship/:internshipId
+
+Submit Task
+POST /:id/submit
+
+Review Submission
+POST /submissions/:submissionId/review
+
+Get My Tasks
+GET /my-tasks
+
+Get My Submissions
+GET /my-submissions
+
+9. Task Priority Levels
+LOW
+
+MEDIUM
+
+HIGH
+
+CRITICAL
+
+
+10. Task Statuses
+DRAFT
+
+ASSIGNED
+
+IN_PROGRESS
+
+SUBMITTED
+
+UNDER_REVIEW
+
+APPROVED
+
+REJECTED
+
+COMPLETED
+
+
+11. Submission Types
+FILE
+
+GITHUB_LINK
+
+LIVE_URL
+
+DOCUMENT_URL
+
+
+12. Progress Tracking Formula
+Completion %
+
+=
+
+Completed Tasks
+
+/
+
+Total Tasks
+
+×
+
+100
+
+
+13. Dashboard Metrics
+Student Dashboard
+Active Internships
+Assigned Tasks
+Completed Tasks
+Pending Reviews
+
+Organization Dashboard
+Active Internships
+Tasks Created
+Submission Reviews
+Internship Completion Rate
+
+Mentor Dashboard
+Assigned Students
+Pending Reviews
+Average Scores
+
+14. Notification Events
+Triggered On
+Task Assigned
+Notify Student
+
+Submission Received
+Notify Organization
+
+Review Completed
+Notify Student
+
+Internship Completed
+Notify Student & Organization
+
+15. Redis Design
+Keys
+task:{id}
+
+internship:{id}
+
+student_tasks:{studentId}
+
+submission:{id}
+
+TTL
+15 Minutes
+
+
+16. Background Jobs
+Deadline Reminder
+Daily
+Notify students 3 days before deadline.
+
+Overdue Task Checker
+Every Hour
+Mark overdue tasks.
+
+Progress Aggregation
+Every 15 Minutes
+Update internship statistics.
+
+17. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+View Task
+Yes
+Yes
+Yes
+No
+Yes
+Create Task
+No
+Yes
+Yes
+No
+Yes
+Assign Task
+No
+Yes
+Yes
+No
+Yes
+Submit Task
+Yes
+No
+No
+No
+No
+Review Submission
+No
+Yes
+Yes
+No
+Yes
+Complete Internship
+No
+Yes
+Yes
+No
+Yes
+
+18. Security Rules
+Students can only access assigned tasks.
+Organizations can only manage their internships.
+Submission files stored in S3.
+Maximum Upload Size:
+10 MB
+Allowed Types:
+PDF
+DOCX
+ZIP
+JPG
+PNG
+
+19. Audit Events
+Capture:
+Internship Created
+Task Created
+Task Assigned
+Submission Uploaded
+Review Submitted
+Internship Completed
+
+20. Acceptance Criteria
+AC-001
+Accepted applications create internships.
+AC-002
+Organizations can create tasks.
+AC-003
+Students can submit work.
+AC-004
+Mentors can review submissions.
+AC-005
+Progress tracking works correctly.
+AC-006
+Internship completion calculated correctly.
+AC-007
+Notifications generated successfully.
+
+21. Future Enhancements
+Phase 2
+Team Projects
+Kanban Boards
+Sprint Management
+GitHub Integration
+Automatic Progress Tracking
+Time Tracking
+Attendance Tracking
+Mentor Meetings
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 7
+SkillBridge Module 7: Assessment & Evaluation Management
+Module Information
+Attribute
+Value
+Module Name
+Assessment & Evaluation Management
+Module Code
+ASM-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+Task & Internship Execution Management
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Assessment & Evaluation Module measures student performance during internships, apprenticeships, projects, and skill programs.
+This module converts completed work into measurable performance metrics that can be used for:
+Certificates
+Employability Score
+Portfolio Achievements
+Organization Reports
+Student Analytics
+The module provides a standardized evaluation framework for all organizations and mentors.
+
+2. Business Objectives
+BO-ASM-001
+Provide objective student evaluation.
+BO-ASM-002
+Create standardized assessment workflows.
+BO-ASM-003
+Generate performance scores.
+BO-ASM-004
+Enable structured mentor feedback.
+BO-ASM-005
+Determine certificate eligibility.
+
+3. Functional Requirements
+FR-ASM-001 Create Assessment
+Organizations and mentors shall create assessments.
+Assessment Types:
+Task Assessment
+Internship Assessment
+Final Evaluation
+
+FR-ASM-002 Evaluate Submission
+Reviewers evaluate submitted work.
+Inputs:
+Score
+Feedback
+Rating
+
+FR-ASM-003 Rubric-Based Evaluation
+Organizations may use predefined evaluation rubrics.
+
+FR-ASM-004 Performance Categorization
+Students shall receive performance categories.
+
+FR-ASM-005 Final Internship Evaluation
+Organizations shall submit final internship assessments.
+
+FR-ASM-006 Assessment History
+Students can view assessment history.
+
+FR-ASM-007 Score Aggregation
+System calculates overall internship score.
+
+FR-ASM-008 Certificate Eligibility Check
+Assessment scores determine certificate generation eligibility.
+
+FR-ASM-009 Reviewer Feedback
+Mentors and organizations provide detailed feedback.
+
+FR-ASM-010 Assessment Reports
+Generate student performance reports.
+
+4. Assessment Types
+TASK_ASSESSMENT
+
+PROJECT_ASSESSMENT
+
+INTERNSHIP_ASSESSMENT
+
+FINAL_EVALUATION
+
+
+5. Performance Categories
+OUTSTANDING
+
+EXCELLENT
+
+GOOD
+
+AVERAGE
+
+NEEDS_IMPROVEMENT
+
+
+6. Evaluation Lifecycle
+Submission Received
+ ↓
+Under Review
+ ↓
+Assessment Created
+ ↓
+Evaluation Completed
+ ↓
+Score Generated
+ ↓
+Certificate Eligibility Checked
+
+
+7. User Stories
+Student
+As a student,
+I want performance feedback,
+so that I can improve my skills.
+
+Mentor
+As a mentor,
+I want to evaluate students,
+so that I can measure learning outcomes.
+
+Company
+As a company,
+I want structured assessments,
+so that intern performance is measurable.
+
+8. Database Design
+assessments
+id UUID PK
+
+submission_id UUID FK
+
+internship_id UUID FK
+
+reviewer_id UUID FK
+
+assessment_type VARCHAR(50)
+
+score DECIMAL(5,2)
+
+rating INT
+
+feedback TEXT
+
+category VARCHAR(50)
+
+created_at TIMESTAMP
+
+
+assessment_rubrics
+id UUID PK
+
+organization_id UUID FK
+
+name VARCHAR(255)
+
+description TEXT
+
+max_score INT
+
+created_at TIMESTAMP
+
+
+rubric_criteria
+id UUID PK
+
+rubric_id UUID FK
+
+criteria_name VARCHAR(255)
+
+weight_percentage INT
+
+max_score INT
+
+
+assessment_reports
+id UUID PK
+
+student_id UUID FK
+
+internship_id UUID FK
+
+overall_score DECIMAL(5,2)
+
+performance_category VARCHAR(50)
+
+report_url TEXT
+
+generated_at TIMESTAMP
+
+
+9. Scoring Framework
+Default Assessment Weights
+Task Completion = 40%
+
+Technical Skills = 25%
+
+Communication = 15%
+
+Problem Solving = 10%
+
+Professionalism = 10%
+
+
+10. Performance Category Logic
+90 - 100 = OUTSTANDING
+
+80 - 89 = EXCELLENT
+
+70 - 79 = GOOD
+
+60 - 69 = AVERAGE
+
+Below 60 = NEEDS_IMPROVEMENT
+
+
+11. Overall Internship Score Formula
+Overall Score
+
+=
+
+Average Task Scores (70%)
+
++
+
+Final Evaluation (30%)
+
+
+12. Certificate Eligibility Rules
+Minimum Score >= 60
+
+AND
+
+Internship Status = COMPLETED
+
+AND
+
+All Mandatory Tasks Completed
+
+
+13. API Contracts
+Base URL
+/api/v1/assessments
+
+Create Assessment
+POST /
+
+Get Assessment
+GET /:id
+
+Update Assessment
+PUT /:id
+
+Get Student Assessments
+GET /student/:studentId
+
+Generate Assessment Report
+POST /report
+
+Get Internship Evaluation
+GET /internship/:internshipId
+
+Create Rubric
+POST /rubrics
+
+Get Rubrics
+GET /rubrics
+
+14. Dashboard Metrics
+Student Dashboard
+Average Score
+Highest Score
+Completed Assessments
+Performance Category
+
+Organization Dashboard
+Average Intern Score
+Internship Completion Rate
+Outstanding Students
+Assessment Distribution
+
+Mentor Dashboard
+Reviews Completed
+Average Assigned Scores
+Pending Evaluations
+
+15. Notification Events
+Triggered On
+Assessment Completed
+Notify Student
+
+Final Evaluation Submitted
+Notify Student
+
+Assessment Report Generated
+Notify Student
+
+Certificate Eligibility Achieved
+Notify Student
+
+16. Redis Design
+Keys
+assessment:{id}
+
+student_assessments:{studentId}
+
+internship_score:{internshipId}
+
+TTL
+15 Minutes
+
+
+17. Background Jobs
+Score Aggregation
+Every Hour
+Update internship scores.
+
+Performance Report Generation
+Daily
+Generate assessment reports.
+
+Eligibility Checker
+Every Hour
+Check certificate eligibility.
+
+18. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+View Assessment
+Yes
+Yes
+Yes
+No
+Yes
+Create Assessment
+No
+Yes
+Yes
+No
+Yes
+Update Assessment
+No
+Yes
+Yes
+No
+Yes
+Create Rubric
+No
+Yes
+Yes
+No
+Yes
+Generate Report
+No
+Yes
+Yes
+No
+Yes
+View Reports
+Yes
+Yes
+Yes
+Yes
+Yes
+
+19. Security Rules
+Students cannot modify assessments.
+Only assigned reviewers can evaluate submissions.
+Assessment changes must be audit logged.
+Final evaluations become immutable after approval.
+
+20. Audit Events
+Capture:
+Assessment Created
+Assessment Updated
+Rubric Created
+Score Generated
+Final Evaluation Submitted
+Report Generated
+
+21. Acceptance Criteria
+AC-001
+Organizations can create assessments.
+AC-002
+Mentors can evaluate submissions.
+AC-003
+Rubric scoring works correctly.
+AC-004
+Performance categories are calculated accurately.
+AC-005
+Assessment reports generate successfully.
+AC-006
+Certificate eligibility rules work correctly.
+AC-007
+Students can view assessments.
+
+22. Future Enhancements
+Phase 2
+AI Evaluation Assistant
+Automated Code Review
+Peer Assessment
+360 Degree Feedback
+Video Assessment
+Soft Skill Evaluation
+Behavioral Analysis
+Skill Gap Analysis
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 8
+SkillBridge Module 8: Certificate Management
+Module Information
+Attribute
+Value
+Module Name
+Certificate Management
+Module Code
+CERT-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+Assessment & Evaluation Management
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis, AWS S3, PDF Generation Service
+
+1. Module Overview
+The Certificate Management Module generates, stores, verifies, and distributes digital certificates for students who successfully complete internships, apprenticeships, projects, and skill development programs.
+This module serves as one of the primary value propositions of SkillBridge by providing:
+Verified Certificates
+Public Verification
+Downloadable PDFs
+Portfolio Integration
+Achievement Records
+Each certificate contains a globally unique certificate ID and verification URL.
+
+2. Business Objectives
+BO-CERT-001
+Generate verified digital certificates.
+BO-CERT-002
+Provide public certificate verification.
+BO-CERT-003
+Prevent certificate forgery.
+BO-CERT-004
+Automatically integrate certificates into student portfolios.
+BO-CERT-005
+Create long-term proof of achievement.
+
+3. Functional Requirements
+FR-CERT-001 Generate Certificate
+System generates certificate after eligibility validation.
+
+FR-CERT-002 Download Certificate
+Students can download certificates in PDF format.
+
+FR-CERT-003 Certificate Verification
+Anyone can verify a certificate using:
+Certificate ID
+Verification URL
+
+FR-CERT-004 Certificate Storage
+Certificates are stored securely in AWS S3.
+
+FR-CERT-005 Certificate Metadata Management
+System stores certificate details.
+
+FR-CERT-006 Portfolio Integration
+Generated certificates automatically appear in student portfolios.
+
+FR-CERT-007 Certificate Reissue
+Admins can regenerate certificates.
+
+FR-CERT-008 Public Certificate Page
+Each certificate has a public verification page.
+
+FR-CERT-009 Certificate Search
+Students can search certificates.
+
+FR-CERT-010 Certificate Analytics
+Track downloads and verifications.
+
+4. Certificate Eligibility Rules
+Certificate is generated only if:
+Internship Status = COMPLETED
+
+AND
+
+Overall Score >= 60
+
+AND
+
+Mandatory Tasks Completed
+
+AND
+
+Final Evaluation Approved
+
+
+5. Certificate Lifecycle
+Eligible
+ ↓
+Certificate Generated
+ ↓
+PDF Created
+ ↓
+Stored In S3
+ ↓
+Issued
+ ↓
+Downloaded
+ ↓
+Verified
+
+
+6. User Stories
+Student
+As a student,
+I want downloadable certificates,
+so that I can showcase achievements.
+
+Organization
+As an organization,
+I want verified certificates,
+so that student achievements remain trustworthy.
+
+Employer
+As an employer,
+I want certificate verification,
+so that I can validate candidate claims.
+
+7. Database Design
+certificates
+id UUID PK
+
+student_id UUID FK
+
+internship_id UUID FK
+
+organization_id UUID FK
+
+certificate_number VARCHAR(100)
+
+title VARCHAR(255)
+
+issue_date DATE
+
+score DECIMAL(5,2)
+
+status VARCHAR(30)
+
+certificate_url TEXT
+
+verification_url TEXT
+
+created_at TIMESTAMP
+
+
+certificate_verifications
+id UUID PK
+
+certificate_id UUID FK
+
+verified_at TIMESTAMP
+
+ip_address VARCHAR(50)
+
+user_agent TEXT
+
+
+certificate_downloads
+id UUID PK
+
+certificate_id UUID FK
+
+downloaded_at TIMESTAMP
+
+
+8. Certificate Number Format
+SB-CERT-YYYY-XXXXXX
+
+Example
+SB-CERT-2026-000124
+
+
+9. PDF Certificate Structure
+Certificate Contains:
+Student Name
+Internship Title
+Organization Name
+Duration
+Score
+Certificate Number
+QR Code
+Verification URL
+Issue Date
+Authorized Signature
+
+10. QR Code Verification
+QR Code redirects to:
+https://skillbridge.com/verify/{certificateNumber}
+
+
+11. API Contracts
+Base URL
+/api/v1/certificates
+
+Generate Certificate
+POST /generate
+
+Get Certificate
+GET /:id
+
+Download Certificate
+GET /:id/download
+
+Verify Certificate
+GET /verify/:certificateNumber
+
+Get Student Certificates
+GET /student/:studentId
+
+Regenerate Certificate
+POST /:id/regenerate
+
+Get Verification Analytics
+GET /:id/analytics
+
+12. Certificate Statuses
+GENERATED
+
+ISSUED
+
+DOWNLOADED
+
+REVOKED
+
+
+13. Analytics Metrics
+Track:
+Student Metrics
+Total Certificates
+Downloads
+
+Organization Metrics
+Certificates Issued
+Average Student Score
+
+Platform Metrics
+Total Certificates Generated
+Verification Requests
+Download Count
+
+14. Redis Design
+Keys
+certificate:{id}
+
+certificate_verify:{number}
+
+student_certificates:{studentId}
+
+TTL
+30 Minutes
+
+
+15. Background Jobs
+Certificate Generator
+Runs Every Hour
+Generate pending certificates.
+
+Verification Analytics Aggregator
+Runs Every Hour
+Update verification statistics.
+
+Broken File Checker
+Daily
+Verify certificate file availability.
+
+16. Storage Design
+AWS S3 Structure
+certificates/
+
+2026/
+
+student-id/
+
+certificate.pdf
+
+
+17. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+View Certificate
+Yes
+Yes
+Yes
+Yes
+Yes
+Download Certificate
+Yes
+No
+No
+No
+Yes
+Generate Certificate
+No
+Yes
+Yes
+No
+Yes
+Verify Certificate
+Public
+Public
+Public
+Public
+Public
+Reissue Certificate
+No
+No
+No
+No
+Yes
+Revoke Certificate
+No
+No
+No
+No
+Yes
+
+18. Security Rules
+Certificates are immutable after issuance.
+Certificate URLs use secure signed access.
+Verification endpoint is public.
+Certificate numbers must be globally unique.
+QR codes cannot be modified after generation.
+
+19. Audit Events
+Capture:
+Certificate Generated
+Certificate Issued
+Certificate Downloaded
+Certificate Verified
+Certificate Revoked
+Certificate Reissued
+
+20. Acceptance Criteria
+AC-001
+Certificates generate automatically.
+AC-002
+PDF files generate correctly.
+AC-003
+Certificates are stored successfully.
+AC-004
+Students can download certificates.
+AC-005
+Verification works publicly.
+AC-006
+QR code verification functions correctly.
+AC-007
+Portfolio integration works.
+AC-008
+Analytics are recorded correctly.
+
+21. Future Enhancements
+Phase 2
+Blockchain Verification
+DigiLocker Integration
+LinkedIn Certificate Sharing
+Certificate Templates
+Multi-Language Certificates
+Digital Signatures
+NFT Credentials
+National Academic Repository Integration
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 9
+SkillBridge Module 9: Portfolio Management
+Module Information
+Attribute
+Value
+Module Name
+Portfolio Management
+Module Code
+PORT-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+Student, Assessment, Certificate, Internship Modules
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Portfolio Management Module creates a professional public profile for students by aggregating data from multiple SkillBridge modules.
+Unlike a traditional resume, the portfolio contains verified achievements, certificates, projects, internship experiences, skills, and performance metrics.
+The portfolio acts as:
+Digital Resume
+Career Profile
+Proof of Work
+Achievement Showcase
+Employability Profile
+Portfolio URLs are publicly shareable.
+Example:
+https://skillbridge.com/u/aviral-mishra
+
+
+2. Business Objectives
+BO-PORT-001
+Create professional public portfolios.
+BO-PORT-002
+Showcase verified achievements.
+BO-PORT-003
+Improve student employability.
+BO-PORT-004
+Provide recruiters with trusted candidate information.
+BO-PORT-005
+Reduce dependency on static resumes.
+
+3. Functional Requirements
+FR-PORT-001 Portfolio Generation
+System automatically generates a portfolio after profile completion.
+
+FR-PORT-002 Public Portfolio Access
+Portfolio shall be accessible through public URLs.
+
+FR-PORT-003 Portfolio Customization
+Students may customize:
+Headline
+Bio
+Social Links
+Featured Projects
+
+FR-PORT-004 Project Showcase
+Display student projects.
+
+FR-PORT-005 Certificate Showcase
+Display verified certificates.
+
+FR-PORT-006 Skill Showcase
+Display skills and proficiency.
+
+FR-PORT-007 Achievement Showcase
+Display achievements and awards.
+
+FR-PORT-008 Internship Showcase
+Display completed internships.
+
+FR-PORT-009 Portfolio Visibility Control
+Visibility Modes:
+Public
+Private
+Recruiter Only (Future)
+
+FR-PORT-010 Portfolio Analytics
+Track profile views.
+
+4. Portfolio Sections
+Profile Section
+Name
+Photo
+Headline
+Bio
+
+Skills Section
+Technical Skills
+Soft Skills
+
+Projects Section
+Project Details
+GitHub Links
+Live URLs
+
+Certificates Section
+Verified Certificates
+Download Links
+
+Experience Section
+Internships
+Apprenticeships
+Projects
+
+Achievements Section
+Awards
+Competitions
+Recognition
+
+5. Portfolio Lifecycle
+Profile Created
+ ↓
+Portfolio Generated
+ ↓
+Published
+ ↓
+Shared
+ ↓
+Viewed
+
+
+6. User Stories
+Student
+As a student,
+I want a professional portfolio,
+so that recruiters can evaluate my work.
+
+Recruiter
+As a recruiter,
+I want verified student information,
+so that I can assess candidates confidently.
+
+Employer
+As an employer,
+I want project evidence,
+so that I can verify practical skills.
+
+7. Database Design
+portfolios
+id UUID PK
+
+student_id UUID FK
+
+slug VARCHAR(255)
+
+headline VARCHAR(255)
+
+bio TEXT
+
+visibility VARCHAR(30)
+
+views_count INT
+
+is_published BOOLEAN
+
+created_at TIMESTAMP
+
+updated_at TIMESTAMP
+
+
+portfolio_projects
+id UUID PK
+
+portfolio_id UUID FK
+
+project_id UUID FK
+
+featured BOOLEAN
+
+
+portfolio_certificates
+id UUID PK
+
+portfolio_id UUID FK
+
+certificate_id UUID FK
+
+featured BOOLEAN
+
+
+portfolio_analytics
+id UUID PK
+
+portfolio_id UUID FK
+
+visitor_ip VARCHAR(50)
+
+country VARCHAR(100)
+
+viewed_at TIMESTAMP
+
+
+8. Portfolio URL Strategy
+Slug Format
+firstname-lastname
+
+Examples
+aviral-mishra
+
+john-doe
+
+priya-sharma
+
+Conflict Handling
+aviral-mishra
+
+aviral-mishra-1
+
+aviral-mishra-2
+
+
+9. Portfolio Score
+Portfolio Strength Score
+Range:
+0 - 100
+
+Formula
+Projects = 25
+
+Certificates = 20
+
+Skills = 20
+
+Experience = 20
+
+Achievements = 15
+
+
+10. API Contracts
+Base URL
+/api/v1/portfolio
+
+Generate Portfolio
+POST /generate
+
+Get Public Portfolio
+GET /:slug
+
+Update Portfolio
+PUT /
+
+Publish Portfolio
+POST /publish
+
+Unpublish Portfolio
+POST /unpublish
+
+Portfolio Analytics
+GET /analytics
+
+Portfolio Strength
+GET /strength-score
+
+11. SEO Design
+Public Portfolio Pages
+Meta Tags:
+Student Name
+Skills
+Projects
+
+Open Graph Support
+LinkedIn
+
+Twitter
+
+WhatsApp
+
+Facebook
+
+
+Structured Data
+Schema.org Person
+
+
+12. Analytics Metrics
+Track
+Portfolio Metrics
+Total Views
+Unique Visitors
+Country Distribution
+Referral Sources
+
+Student Metrics
+Portfolio Strength
+Recruiter Visits
+Certificate Views
+
+13. Redis Design
+Keys
+portfolio:{slug}
+
+portfolio_views:{portfolioId}
+
+portfolio_strength:{studentId}
+
+TTL
+30 Minutes
+
+
+14. Background Jobs
+Portfolio Regeneration
+Daily
+Update data automatically.
+
+Analytics Aggregation
+Every Hour
+Update view statistics.
+
+SEO Sitemap Update
+Daily
+Refresh portfolio URLs.
+
+15. RBAC Matrix
+Action
+Student
+Recruiter
+Company
+Mentor
+Admin
+View Public Portfolio
+Yes
+Yes
+Yes
+Yes
+Yes
+Update Portfolio
+Yes
+No
+No
+No
+Yes
+Publish Portfolio
+Yes
+No
+No
+No
+Yes
+Unpublish Portfolio
+Yes
+No
+No
+No
+Yes
+View Analytics
+Yes
+No
+No
+No
+Yes
+
+16. Security Rules
+Private portfolios are not publicly accessible.
+Students may only modify their own portfolios.
+Analytics data is visible only to portfolio owners.
+Hidden certificates are excluded from public view.
+
+17. Audit Events
+Capture:
+Portfolio Generated
+Portfolio Published
+Portfolio Updated
+Portfolio Viewed
+Portfolio Unpublished
+
+18. Acceptance Criteria
+AC-001
+Portfolio generates successfully.
+AC-002
+Public URLs work correctly.
+AC-003
+Projects display correctly.
+AC-004
+Certificates display correctly.
+AC-005
+Portfolio analytics work.
+AC-006
+SEO metadata generates correctly.
+AC-007
+Portfolio visibility controls function properly.
+
+19. Future Enhancements
+Phase 2
+Custom Portfolio Themes
+AI Resume Generation
+AI Portfolio Optimization
+Domain Mapping
+Recruiter Insights
+Portfolio Export PDF
+Video Introduction Section
+GitHub Auto Sync
+LinkedIn Auto Sync
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 10
+SkillBridge Module 10: Notification & Communication Service
+Module Information
+Attribute
+Value
+Module Name
+Notification & Communication Service
+Module Code
+NOTIF-001
+Priority
+High
+Phase
+MVP
+Depends On
+All Modules
+Backend Stack
+Node.js, Express.js, PostgreSQL, Redis, BullMQ, Email Provider (Resend/SendGrid)
+
+1. Module Overview
+The Notification Service is a centralized communication system responsible for delivering real-time updates and alerts across the SkillBridge platform.
+This module acts as an event-driven service that listens to actions from all other modules and delivers notifications through multiple channels.
+Channels:
+In-App Notifications
+Email Notifications
+System Alerts
+Push Notifications (Future)
+SMS Notifications (Future)
+
+2. Business Objectives
+BO-NOTIF-001
+Provide real-time communication.
+BO-NOTIF-002
+Keep users informed about important events.
+BO-NOTIF-003
+Reduce missed opportunities.
+BO-NOTIF-004
+Improve user engagement.
+BO-NOTIF-005
+Provide centralized notification management.
+
+3. Functional Requirements
+FR-NOTIF-001 Create Notification
+System generates notifications based on platform events.
+
+FR-NOTIF-002 In-App Notification
+Users receive notifications inside the dashboard.
+
+FR-NOTIF-003 Email Notification
+Users receive email alerts.
+
+FR-NOTIF-004 Mark As Read
+Users may mark notifications as read.
+
+FR-NOTIF-005 Mark All As Read
+Users may mark all notifications as read.
+
+FR-NOTIF-006 Notification Preferences
+Users can configure notification settings.
+
+FR-NOTIF-007 Notification History
+System stores notification history.
+
+FR-NOTIF-008 Retry Failed Deliveries
+Failed notifications are automatically retried.
+
+FR-NOTIF-009 Bulk Notifications
+System can notify multiple users.
+
+FR-NOTIF-010 Scheduled Notifications
+Notifications can be scheduled.
+
+4. Notification Categories
+AUTHENTICATION
+
+APPLICATION
+
+TASK
+
+ASSESSMENT
+
+CERTIFICATE
+
+PORTFOLIO
+
+SYSTEM
+
+ADMIN
+
+
+5. Notification Priority Levels
+LOW
+
+MEDIUM
+
+HIGH
+
+CRITICAL
+
+
+6. Event Sources
+IAM Module
+Registration Successful
+Email Verified
+Password Reset
+
+Application Module
+Application Submitted
+Shortlisted
+Accepted
+Rejected
+
+Task Module
+Task Assigned
+Task Due Soon
+Submission Reviewed
+
+Assessment Module
+Assessment Completed
+Evaluation Submitted
+
+Certificate Module
+Certificate Generated
+Certificate Available
+
+Portfolio Module
+Portfolio Viewed (Future)
+
+7. User Stories
+Student
+As a student,
+I want updates about applications and tasks,
+so that I never miss important deadlines.
+
+Company
+As a company,
+I want notifications about applications,
+so that I can review candidates quickly.
+
+Admin
+As an admin,
+I want system alerts,
+so that I can monitor platform health.
+
+8. Database Design
+notifications
+id UUID PK
+
+user_id UUID FK
+
+title VARCHAR(255)
+
+message TEXT
+
+category VARCHAR(50)
+
+priority VARCHAR(20)
+
+is_read BOOLEAN
+
+created_at TIMESTAMP
+
+
+notification_preferences
+id UUID PK
+
+user_id UUID FK
+
+email_enabled BOOLEAN
+
+in_app_enabled BOOLEAN
+
+task_notifications BOOLEAN
+
+application_notifications BOOLEAN
+
+certificate_notifications BOOLEAN
+
+
+notification_deliveries
+id UUID PK
+
+notification_id UUID FK
+
+channel VARCHAR(30)
+
+status VARCHAR(30)
+
+attempt_count INT
+
+sent_at TIMESTAMP
+
+
+9. Notification Lifecycle
+Event Triggered
+ ↓
+Notification Created
+ ↓
+Queued
+ ↓
+Delivered
+ ↓
+Read
+
+Alternative Path
+Queued
+ ↓
+Failed
+ ↓
+Retry
+ ↓
+Delivered
+
+
+10. API Contracts
+Base URL
+/api/v1/notifications
+
+Get Notifications
+GET /
+
+Get Unread Count
+GET /unread-count
+
+Mark As Read
+PUT /:id/read
+
+Mark All As Read
+PUT /read-all
+
+Update Preferences
+PUT /preferences
+
+Get Preferences
+GET /preferences
+
+11. Queue Architecture
+Technology:
+BullMQ
+
+Redis
+
+Queues:
+email_queue
+
+notification_queue
+
+scheduled_queue
+
+
+12. Email Templates
+Templates:
+Welcome Email
+Email Verification
+Password Reset
+Application Submitted
+Application Accepted
+Application Rejected
+Task Assigned
+Assessment Completed
+Certificate Generated
+
+13. Dashboard Metrics
+Student
+Unread Notifications
+Recent Notifications
+
+Organization
+Application Alerts
+Task Alerts
+
+Admin
+Delivery Success Rate
+Failed Notifications
+Queue Health
+
+14. Redis Design
+Keys
+notifications:{userId}
+
+unread_count:{userId}
+
+email_queue
+
+notification_queue
+
+TTL
+10 Minutes
+
+
+15. Background Jobs
+Notification Dispatcher
+Every Minute
+Send pending notifications.
+
+Retry Failed Deliveries
+Every 5 Minutes
+Retry failed notifications.
+
+Cleanup Old Notifications
+Monthly
+Archive old records.
+
+16. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+View Notifications
+Yes
+Yes
+Yes
+Yes
+Yes
+Mark As Read
+Yes
+Yes
+Yes
+Yes
+Yes
+Update Preferences
+Yes
+Yes
+Yes
+Yes
+Yes
+Send System Notification
+No
+No
+No
+No
+Yes
+View Delivery Analytics
+No
+No
+No
+No
+Yes
+
+17. Security Rules
+Users may only access their own notifications.
+System notifications require Admin privileges.
+Email templates must be sanitized.
+Rate limiting applied to bulk notifications.
+
+18. Audit Events
+Capture:
+Notification Created
+Notification Delivered
+Notification Read
+Notification Failed
+Preferences Updated
+
+19. Acceptance Criteria
+AC-001
+Notifications generate automatically.
+AC-002
+In-app notifications display correctly.
+AC-003
+Email notifications send successfully.
+AC-004
+Unread count updates correctly.
+AC-005
+Notification preferences work.
+AC-006
+Failed deliveries retry automatically.
+AC-007
+Notification history is preserved.
+
+20. Future Enhancements
+Phase 2
+Push Notifications
+SMS Integration
+WhatsApp Notifications
+Slack Integration
+Microsoft Teams Integration
+Notification Digest
+AI Smart Notifications
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 11
+SkillBridge Module 11: Analytics & Reporting Management
+Module Information
+Attribute
+Value
+Module Name
+Analytics & Reporting Management
+Module Code
+ANALYTICS-001
+Priority
+High
+Phase
+MVP
+Depends On
+All Core Modules
+Backend Stack
+Node.js, Express.js, PostgreSQL, Redis, BullMQ
+
+1. Module Overview
+The Analytics & Reporting Module transforms operational platform data into actionable insights for students, organizations, institutions, and administrators.
+The module aggregates data from:
+Students
+Organizations
+Opportunities
+Applications
+Internships
+Tasks
+Assessments
+Certificates
+Portfolios
+and generates:
+KPIs
+Dashboards
+Reports
+Trends
+Performance Insights
+
+2. Business Objectives
+BO-ANL-001
+Provide measurable platform insights.
+BO-ANL-002
+Track student growth and employability.
+BO-ANL-003
+Support institution decision-making.
+BO-ANL-004
+Monitor organizational performance.
+BO-ANL-005
+Enable platform-wide reporting.
+
+3. Functional Requirements
+FR-ANL-001 Student Analytics
+Generate student performance metrics.
+
+FR-ANL-002 Institution Analytics
+Generate school and college reports.
+
+FR-ANL-003 Organization Analytics
+Generate company and mentor performance reports.
+
+FR-ANL-004 Opportunity Analytics
+Track opportunity engagement.
+
+FR-ANL-005 Internship Analytics
+Track internship completion metrics.
+
+FR-ANL-006 Assessment Analytics
+Analyze student scores and performance.
+
+FR-ANL-007 Certificate Analytics
+Track certificate issuance and verification.
+
+FR-ANL-008 Portfolio Analytics
+Track portfolio engagement.
+
+FR-ANL-009 Export Reports
+Generate:
+PDF
+CSV
+Excel
+
+FR-ANL-010 KPI Dashboard
+Display platform KPIs.
+
+4. Student Analytics
+Metrics
+Applications Submitted
+
+Applications Accepted
+
+Internships Completed
+
+Tasks Completed
+
+Average Assessment Score
+
+Certificates Earned
+
+Portfolio Views
+
+Employability Score
+
+
+5. Institution Analytics
+Metrics
+Total Students
+
+Active Students
+
+Applications Submitted
+
+Internships Completed
+
+Certificates Earned
+
+Average Student Score
+
+Employability Distribution
+
+
+6. Organization Analytics
+Metrics
+Total Opportunities
+
+Applications Received
+
+Acceptance Rate
+
+Internship Completion Rate
+
+Average Student Performance
+
+Certificates Issued
+
+
+7. Platform KPIs
+Metrics
+Registered Students
+
+Active Organizations
+
+Published Opportunities
+
+Applications Submitted
+
+Completed Internships
+
+Certificates Generated
+
+Portfolio Views
+
+Monthly Active Users
+
+
+8. Database Design
+analytics_snapshots
+id UUID PK
+
+entity_type VARCHAR(50)
+
+entity_id UUID
+
+metric_name VARCHAR(100)
+
+metric_value DECIMAL(15,2)
+
+snapshot_date DATE
+
+created_at TIMESTAMP
+
+
+reports
+id UUID PK
+
+generated_by UUID FK
+
+report_type VARCHAR(50)
+
+file_url TEXT
+
+generated_at TIMESTAMP
+
+
+dashboard_widgets
+id UUID PK
+
+user_id UUID FK
+
+widget_name VARCHAR(100)
+
+position INT
+
+is_enabled BOOLEAN
+
+
+9. Analytics Aggregation Strategy
+Real-Time Metrics
+Portfolio Views
+Opportunity Views
+Active Users
+
+Hourly Metrics
+Applications
+Tasks
+Assessments
+
+Daily Metrics
+Reports
+KPI Snapshots
+Performance Summaries
+
+10. Report Types
+STUDENT_REPORT
+
+INSTITUTION_REPORT
+
+ORGANIZATION_REPORT
+
+INTERNSHIP_REPORT
+
+CERTIFICATE_REPORT
+
+PLATFORM_REPORT
+
+
+11. API Contracts
+Base URL
+/api/v1/analytics
+
+Student Analytics
+GET /student
+
+Institution Analytics
+GET /institution
+
+Organization Analytics
+GET /organization
+
+Platform Analytics
+GET /platform
+(Admin Only)
+
+Generate Report
+POST /reports
+
+Download Report
+GET /reports/:id/download
+
+KPI Dashboard
+GET /dashboard
+
+12. Dashboard Components
+Student Dashboard
+Applications Overview
+Internship Progress
+Portfolio Analytics
+Certificates
+
+School Dashboard
+Student Participation
+Completion Rates
+Institution Reports
+
+Company Dashboard
+Opportunity Performance
+Applicant Funnel
+Internship Outcomes
+
+Admin Dashboard
+Platform Health
+Growth Metrics
+Revenue Metrics
+User Activity
+
+13. Funnel Analytics
+Application Funnel
+Opportunity Views
+ ↓
+Applications
+ ↓
+Shortlisted
+ ↓
+Accepted
+ ↓
+Completed
+
+Track conversion percentages at every stage.
+
+14. Redis Design
+Keys
+analytics_dashboard:{userId}
+
+student_metrics:{studentId}
+
+organization_metrics:{organizationId}
+
+platform_kpis
+
+TTL
+15 Minutes
+
+
+15. Background Jobs
+Analytics Aggregator
+Every 15 Minutes
+
+KPI Snapshot Generator
+Daily
+
+Monthly Report Generator
+Monthly
+
+Report Cleanup
+Quarterly
+Archive old reports.
+
+16. Visualization Components
+Charts Supported
+Line Chart
+
+Bar Chart
+
+Pie Chart
+
+Area Chart
+
+Heatmap
+
+
+17. RBAC Matrix
+Action
+Student
+Company
+Mentor
+School
+Admin
+View Personal Analytics
+Yes
+Yes
+Yes
+Yes
+Yes
+View Institution Analytics
+No
+No
+No
+Yes
+Yes
+View Organization Analytics
+No
+Yes
+Yes
+No
+Yes
+Generate Reports
+No
+Yes
+Yes
+Yes
+Yes
+View Platform Analytics
+No
+No
+No
+No
+Yes
+
+18. Security Rules
+Students can only view their own analytics.
+Schools can only access institution-level analytics.
+Organizations can only access their own data.
+Platform-wide analytics restricted to Admins.
+
+19. Audit Events
+Capture:
+Report Generated
+Report Downloaded
+Dashboard Accessed
+Analytics Exported
+
+20. Acceptance Criteria
+AC-001
+Student analytics generated correctly.
+AC-002
+Institution analytics generated correctly.
+AC-003
+Organization analytics generated correctly.
+AC-004
+Reports export successfully.
+AC-005
+Dashboard metrics are accurate.
+AC-006
+KPI calculations update correctly.
+AC-007
+Role-based analytics access works correctly.
+
+21. Future Enhancements
+Phase 2
+AI Insights Engine
+Predictive Analytics
+Employability Forecasting
+Student Risk Detection
+Opportunity Recommendation Analytics
+Custom Dashboard Builder
+Data Warehouse Integration
+Power BI Integration
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 12
+SkillBridge Module 12: Admin & Moderation Management
+Module Information
+Attribute
+Value
+Module Name
+Admin & Moderation Management
+Module Code
+ADMIN-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+All Modules
+Backend Stack
+Node.js, Express.js, PostgreSQL, Prisma ORM, Redis
+
+1. Module Overview
+The Admin & Moderation Module serves as the governance and operational control center of SkillBridge.
+This module provides administrators with tools to:
+Manage Users
+Manage Organizations
+Moderate Opportunities
+Monitor Platform Activity
+Handle Certificates
+Review Reports
+Manage Subscriptions
+Configure Platform Settings
+View Audit Logs
+The Admin module ensures platform integrity, security, compliance, and operational continuity.
+
+2. Business Objectives
+BO-ADMIN-001
+Provide centralized platform administration.
+BO-ADMIN-002
+Prevent abuse and fraudulent activities.
+BO-ADMIN-003
+Ensure opportunity quality.
+BO-ADMIN-004
+Maintain platform security.
+BO-ADMIN-005
+Support compliance and auditing.
+
+3. Functional Requirements
+FR-ADMIN-001 User Management
+Admins can:
+View Users
+Suspend Users
+Activate Users
+Delete Users
+Reset Passwords
+
+FR-ADMIN-002 Organization Verification
+Admins review organization verification requests.
+Actions:
+Approve
+Reject
+Suspend
+
+FR-ADMIN-003 Opportunity Moderation
+Admins review opportunities before publication.
+Actions:
+Approve
+Reject
+Archive
+
+FR-ADMIN-004 Certificate Moderation
+Admins can:
+View Certificates
+Reissue Certificates
+Revoke Certificates
+
+FR-ADMIN-005 Report Management
+Admins can access all reports.
+
+FR-ADMIN-006 Subscription Management
+Manage:
+Plans
+Renewals
+Upgrades
+Downgrades
+
+FR-ADMIN-007 System Settings
+Manage:
+Feature Flags
+Platform Configuration
+Notification Settings
+
+FR-ADMIN-008 Audit Log Access
+View complete platform activity history.
+
+FR-ADMIN-009 Dashboard Monitoring
+Monitor:
+Platform Health
+User Growth
+Errors
+System KPIs
+
+FR-ADMIN-010 Announcement Management
+Broadcast platform-wide announcements.
+
+4. Administrative Domains
+USER_MANAGEMENT
+
+ORGANIZATION_MANAGEMENT
+
+OPPORTUNITY_MODERATION
+
+CERTIFICATE_MANAGEMENT
+
+SUBSCRIPTION_MANAGEMENT
+
+AUDIT_MANAGEMENT
+
+SYSTEM_CONFIGURATION
+
+
+5. User Lifecycle
+Registered
+ ↓
+Verified
+ ↓
+Active
+ ↓
+Suspended
+ ↓
+Reactivated
+
+Alternative
+Active
+ ↓
+Deleted
+
+
+6. Organization Verification Lifecycle
+Pending
+ ↓
+Approved
+ ↓
+Active
+
+Alternative
+Pending
+ ↓
+Rejected
+
+
+7. User Stories
+Admin
+As an admin,
+I want full platform visibility,
+so that I can manage operations efficiently.
+
+Moderator
+As a moderator,
+I want to review opportunities,
+so that platform quality remains high.
+
+Platform Owner
+As a platform owner,
+I want subscription controls,
+so that revenue operations remain manageable.
+
+8. Database Design
+admin_actions
+id UUID PK
+
+admin_id UUID FK
+
+action_type VARCHAR(100)
+
+entity_type VARCHAR(100)
+
+entity_id UUID
+
+remarks TEXT
+
+created_at TIMESTAMP
+
+
+audit_logs
+id UUID PK
+
+user_id UUID FK
+
+action VARCHAR(255)
+
+resource_type VARCHAR(100)
+
+resource_id UUID
+
+ip_address VARCHAR(50)
+
+user_agent TEXT
+
+created_at TIMESTAMP
+
+
+announcements
+id UUID PK
+
+title VARCHAR(255)
+
+message TEXT
+
+priority VARCHAR(30)
+
+published BOOLEAN
+
+published_at TIMESTAMP
+
+
+system_settings
+id UUID PK
+
+setting_key VARCHAR(255)
+
+setting_value TEXT
+
+updated_by UUID
+
+updated_at TIMESTAMP
+
+
+9. Admin Dashboard Metrics
+User Metrics
+Total Users
+Active Users
+Suspended Users
+New Registrations
+
+Organization Metrics
+Verified Organizations
+Pending Verifications
+Rejected Requests
+
+Opportunity Metrics
+Published Opportunities
+Pending Approvals
+Archived Opportunities
+
+Certificate Metrics
+Generated Certificates
+Revoked Certificates
+Verification Requests
+
+Revenue Metrics
+Active Subscriptions
+Monthly Revenue
+Renewal Rate
+
+10. API Contracts
+Base URL
+/api/v1/admin
+
+Users
+GET /users
+GET /users/:id
+PUT /users/:id/suspend
+PUT /users/:id/activate
+DELETE /users/:id
+
+Organizations
+GET /organizations/pending
+PUT /organizations/:id/approve
+PUT /organizations/:id/reject
+
+Opportunities
+GET /opportunities/pending
+PUT /opportunities/:id/approve
+PUT /opportunities/:id/reject
+
+Certificates
+GET /certificates
+PUT /certificates/:id/revoke
+POST /certificates/:id/reissue
+
+Reports
+GET /reports
+
+Audit Logs
+GET /audit-logs
+
+Announcements
+POST /announcements
+GET /announcements
+
+11. Moderation Rules
+User Suspension
+Reasons:
+Fraud
+Spam
+Abuse
+Fake Information
+
+Opportunity Rejection
+Reasons:
+Incomplete Information
+Fraudulent Posting
+Policy Violation
+
+Certificate Revocation
+Reasons:
+Misconduct
+Invalid Assessment
+Administrative Error
+
+12. Announcement Priorities
+LOW
+
+MEDIUM
+
+HIGH
+
+CRITICAL
+
+
+13. Audit Logging Requirements
+Capture:
+Login
+
+Logout
+
+Registration
+
+Organization Approval
+
+Opportunity Approval
+
+Certificate Generation
+
+User Suspension
+
+Settings Changes
+
+Retention:
+365 Days
+
+
+14. Redis Design
+Keys
+admin_dashboard
+
+platform_kpis
+
+system_settings_cache
+
+announcements
+
+TTL
+10 Minutes
+
+
+15. Background Jobs
+Audit Log Archival
+Monthly
+
+Subscription Expiry Checker
+Daily
+
+Pending Verification Reminder
+Daily
+
+KPI Snapshot Generator
+Daily
+
+16. RBAC Matrix
+Action
+Admin
+Moderator
+View Users
+Yes
+Yes
+Suspend Users
+Yes
+No
+Delete Users
+Yes
+No
+Verify Organizations
+Yes
+Yes
+Approve Opportunities
+Yes
+Yes
+Revoke Certificates
+Yes
+No
+Manage Settings
+Yes
+No
+View Audit Logs
+Yes
+Yes
+Broadcast Announcements
+Yes
+No
+
+17. Security Rules
+All admin actions require audit logging.
+Sensitive actions require elevated permissions.
+Admin APIs protected with strict RBAC.
+Critical settings changes recorded permanently.
+Audit logs are immutable.
+
+18. Audit Events
+Capture:
+User Suspended
+User Activated
+Organization Approved
+Opportunity Approved
+Certificate Revoked
+Settings Updated
+Announcement Published
+
+19. Acceptance Criteria
+AC-001
+Admins can manage users.
+AC-002
+Organization verification workflow functions correctly.
+AC-003
+Opportunity moderation works.
+AC-004
+Audit logs capture all critical actions.
+AC-005
+Announcements publish successfully.
+AC-006
+Dashboard metrics update correctly.
+AC-007
+RBAC restrictions function correctly.
+
+20. Future Enhancements
+Phase 2
+Multi-Level Admin Roles
+Super Admin Console
+Fraud Detection Engine
+AI Content Moderation
+Compliance Dashboard
+Security Incident Center
+Revenue Intelligence Dashboard
+Advanced Audit Analytics
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 13
+SkillBridge Module 13: Platform Infrastructure & Shared Services
+Module Information
+Attribute
+Value
+Module Name
+Platform Infrastructure & Shared Services
+Module Code
+CORE-001
+Priority
+Critical
+Phase
+MVP
+Depends On
+None
+Used By
+All Modules
+Backend Stack
+Node.js, Express.js, PostgreSQL, Redis, BullMQ, AWS S3
+
+1. Module Overview
+The Platform Infrastructure Module provides reusable services used by all business modules.
+This module contains common platform capabilities that should not belong to any specific business domain.
+Examples:
+File Upload Service
+Email Service
+Queue Service
+Cache Service
+Audit Service
+Logging Service
+Search Service
+Error Handling
+Feature Flags
+Monitoring
+
+2. Architectural Goal
+Avoid duplicated code across modules.
+Instead of:
+Student Module
+  └── Upload Logic
+
+Certificate Module
+  └── Upload Logic
+
+Portfolio Module
+  └── Upload Logic
+
+Use:
+Shared Upload Service
+
+
+3. Core Services
+Service 1
+File Management Service
+
+Responsibilities
+Upload Files
+Download Files
+Delete Files
+Generate Signed URLs
+Storage:
+AWS S3
+
+Supported File Types
+PDF
+
+JPG
+
+JPEG
+
+PNG
+
+DOCX
+
+ZIP
+
+
+Maximum File Size
+10 MB
+
+
+Service 2
+Email Service
+
+Responsibilities
+Verification Email
+Password Reset
+Application Alerts
+Certificate Emails
+
+Provider
+Resend
+
+or
+
+SendGrid
+
+
+Email Templates
+Welcome
+Verification
+Password Reset
+Application Accepted
+Certificate Generated
+
+Service 3
+Redis Cache Service
+
+Responsibilities
+Session Cache
+Dashboard Cache
+Search Cache
+Rate Limiting
+
+Key Pattern
+module:resource:id
+
+Example
+student:profile:123
+
+opportunity:567
+
+certificate:abc
+
+
+Service 4
+Queue Service
+
+Technology
+BullMQ
+
+Redis
+
+
+Queues
+email_queue
+
+notification_queue
+
+certificate_queue
+
+analytics_queue
+
+
+Responsibilities
+Async Jobs
+Retry Logic
+Background Processing
+
+Service 5
+Audit Service
+
+Responsibilities
+Capture:
+Login
+Logout
+Profile Updates
+Opportunity Creation
+Certificate Generation
+Admin Actions
+
+Storage
+audit_logs
+
+Retention
+365 Days
+
+
+Service 6
+Logging Service
+
+Technology
+Winston
+
+
+Log Levels
+ERROR
+
+WARN
+
+INFO
+
+DEBUG
+
+
+Log Types
+Application Logs
+Security Logs
+API Logs
+Job Logs
+
+Service 7
+Search Service
+
+Responsibilities
+Search Across:
+Students
+Organizations
+Opportunities
+Certificates
+
+MVP
+PostgreSQL Full Text Search
+
+
+Future
+ElasticSearch
+
+
+Service 8
+Notification Broker
+
+Responsibilities
+Central Event Routing
+Example
+Application Submitted
+        ↓
+Notification Event
+        ↓
+Email Service
+        ↓
+Notification Service
+
+
+Service 9
+Feature Flag Service
+
+Responsibilities
+Enable/Disable Features
+Example
+{
+  "AI_RESUME_BUILDER": false,
+  "CAREER_GUIDANCE": false,
+  "PORTFOLIO_V2": true
+}
+
+
+Service 10
+Monitoring Service
+
+Metrics
+CPU
+Memory
+Requests
+Errors
+Queue Health
+
+Technology
+Prometheus
+
+Grafana
+
+
+4. Shared Database Tables
+audit_logs
+id UUID PK
+
+user_id UUID
+
+action VARCHAR(255)
+
+resource_type VARCHAR(100)
+
+resource_id UUID
+
+ip_address VARCHAR(50)
+
+created_at TIMESTAMP
+
+
+file_uploads
+id UUID PK
+
+uploaded_by UUID
+
+file_name VARCHAR(255)
+
+file_type VARCHAR(100)
+
+file_url TEXT
+
+created_at TIMESTAMP
+
+
+feature_flags
+id UUID PK
+
+flag_key VARCHAR(255)
+
+enabled BOOLEAN
+
+updated_at TIMESTAMP
+
+
+job_logs
+id UUID PK
+
+queue_name VARCHAR(100)
+
+status VARCHAR(50)
+
+payload JSONB
+
+created_at TIMESTAMP
+
+
+5. API Contracts
+Base URL
+/api/v1/core
+
+Upload File
+POST /files/upload
+
+Delete File
+DELETE /files/:id
+
+Search
+GET /search
+
+Feature Flags
+GET /feature-flags
+
+Health Check
+GET /health
+
+Metrics
+GET /metrics
+
+6. Folder Structure
+src/
+
+core/
+
+cache/
+redis.service.js
+
+queue/
+bullmq.service.js
+
+storage/
+s3.service.js
+
+email/
+email.service.js
+
+audit/
+audit.service.js
+
+logging/
+logger.js
+
+search/
+search.service.js
+
+feature-flags/
+
+monitoring/
+
+middleware/
+
+exceptions/
+
+constants/
+
+
+7. Error Handling Framework
+Standard Response
+{
+  "success": false,
+  "message": "Opportunity not found",
+  "error_code": "OPP_001"
+}
+
+
+Global Error Categories
+AUTH_ERROR
+
+VALIDATION_ERROR
+
+BUSINESS_ERROR
+
+DATABASE_ERROR
+
+EXTERNAL_SERVICE_ERROR
+
+UNKNOWN_ERROR
+
+
+8. Security Rules
+All services use:
+JWT Authentication
+RBAC
+Rate Limiting
+Audit Logging
+Sensitive data never logged.
+Secrets stored in environment variables.
+
+9. Acceptance Criteria
+AC-001
+File upload service works.
+AC-002
+Email delivery works.
+AC-003
+Redis cache functions correctly.
+AC-004
+Queue processing succeeds.
+AC-005
+Audit logs recorded.
+AC-006
+Monitoring dashboards available.
+AC-007
+Feature flags function correctly.
+
+10. Future Enhancements
+Phase 2
+ElasticSearch
+Kafka Event Bus
+Microservice Gateway
+Distributed Tracing
+OpenTelemetry
+Kubernetes Autoscaling
+Multi-Region Deployment
+Module Status:Architecture Frozen for MVP
+Version: 1.0
+Ready for Antigravity Code Generation
+
+Tab 14
+Advanced Architecture Decisions
+
+AAD-001
+Use Domain Driven Design
+
+Reason:
+Supports scalability and future microservice migration.
+
+---
+
+AAD-002
+Introduce Event Driven Architecture
+
+Reason:
+Allows Notifications, Analytics, Audit Logs,
+Certificates and Recommendations to react
+to business events.
+
+---
+
+AAD-003
+Replace Task Module with Internship Workspace
+
+Reason:
+Creates competitive advantage over Internshala
+and LinkedIn.
+
+Workspace Components:
+- Tasks
+- Files
+- Discussions
+- Milestones
+- Reviews
+
+---
+
+AAD-004
+Activity Feed System
+
+Reason:
+Increase engagement and visibility.
+
+---
+
+AAD-005
+Recommendation Engine
+
+Reason:
+Improve opportunity matching.
+
+Tab 15
+The Event Catalog is the backbone of a modern system.
+Without it:
+Application Accepted
+  ↓
+Call Notification Service
+  ↓
+Call Analytics Service
+  ↓
+Call Audit Service
+  ↓
+Call Certificate Service
+Everything becomes tightly coupled.
+With Event Catalog:
+Application Accepted
+       ↓
+APPLICATION_ACCEPTED Event
+       ↓
+Notification Service
+Analytics Service
+Audit Service
+Workspace Service
+Recommendation Service
+Much cleaner.
+
+SkillBridge Event Catalog (Version 1.0)
+Purpose
+The Event Catalog defines all business events emitted by SkillBridge domains.
+Events are immutable records representing something important that happened in the system.
+Events are used by:
+Notifications
+Analytics
+Audit Logging
+Recommendation Engine
+Future Microservices
+Activity Feed
+
+Event Naming Convention
+Format:
+DOMAIN_ACTION
+Examples:
+USER_REGISTERED
+
+PROFILE_COMPLETED
+
+APPLICATION_SUBMITTED
+
+CERTIFICATE_GENERATED
+
+Domain 1: Identity Events
+USER_REGISTERED
+Published When
+User registration successful
+Payload
+{
+ "event": "USER_REGISTERED",
+ "userId": "uuid",
+ "role": "STUDENT",
+ "timestamp": "ISO_DATE"
+}
+Consumers
+Notification Service
+
+Analytics Service
+
+Audit Service
+
+EMAIL_VERIFIED
+Published When
+User verifies email
+Consumers
+Notification
+
+Analytics
+
+Activity Feed
+
+USER_LOGGED_IN
+Published When
+Login successful
+Consumers
+Audit
+
+Analytics
+
+PASSWORD_RESET_REQUESTED
+Consumers
+Notification
+
+Audit
+
+Domain 2: Student Events
+STUDENT_PROFILE_CREATED
+Consumers
+Analytics
+
+Activity Feed
+
+STUDENT_PROFILE_COMPLETED
+Important Event
+Triggers
+Recommendation Engine
+
+Portfolio Generator
+
+STUDENT_SKILL_ADDED
+Consumers
+Recommendation Engine
+
+Analytics
+
+STUDENT_PROJECT_ADDED
+Consumers
+Portfolio Service
+
+Analytics
+
+Domain 3: Organization Events
+ORGANIZATION_REGISTERED
+Consumers
+Admin
+
+Analytics
+
+ORGANIZATION_VERIFIED
+Consumers
+Notification
+
+Opportunity Service
+
+SUBSCRIPTION_ACTIVATED
+Consumers
+Billing
+
+Analytics
+
+Domain 4: Opportunity Events
+OPPORTUNITY_CREATED
+Consumers
+Audit
+
+Analytics
+
+OPPORTUNITY_PUBLISHED
+Consumers
+Notification
+
+Recommendation Engine
+
+Activity Feed
+
+OPPORTUNITY_CLOSED
+Consumers
+Analytics
+
+Search Index
+
+OPPORTUNITY_BOOKMARKED
+Consumers
+Recommendation Engine
+
+Analytics
+
+Domain 5: Application Events
+APPLICATION_SUBMITTED
+Critical Event
+Consumers
+Notification
+
+Analytics
+
+Activity Feed
+
+APPLICATION_SHORTLISTED
+Consumers
+Notification
+
+Activity Feed
+
+APPLICATION_ACCEPTED
+Very Important Event
+Consumers
+Internship Workspace
+
+Notification
+
+Analytics
+
+Activity Feed
+Result
+Create Internship Workspace
+
+APPLICATION_REJECTED
+Consumers
+Notification
+
+Analytics
+
+APPLICATION_WITHDRAWN
+Consumers
+Analytics
+
+Audit
+
+Domain 6: Internship Workspace Events
+WORKSPACE_CREATED
+Consumers
+Notification
+
+Analytics
+
+TASK_CREATED
+Consumers
+Activity Feed
+
+TASK_ASSIGNED
+Consumers
+Notification
+
+Analytics
+
+TASK_SUBMITTED
+Consumers
+Notification
+
+Assessment Service
+
+Activity Feed
+
+TASK_APPROVED
+Consumers
+Analytics
+
+Activity Feed
+
+INTERNSHIP_COMPLETED
+Critical Event
+Consumers
+Assessment Service
+
+Certificate Service
+
+Analytics
+
+Domain 7: Assessment Events
+ASSESSMENT_CREATED
+Consumers
+Analytics
+
+ASSESSMENT_COMPLETED
+Consumers
+Certificate Service
+
+Analytics
+
+Activity Feed
+
+FINAL_SCORE_GENERATED
+Consumers
+Certificate Service
+
+Portfolio Service
+
+Domain 8: Certificate Events
+CERTIFICATE_ELIGIBLE
+Consumers
+Certificate Generator
+
+CERTIFICATE_GENERATED
+Very Important Event
+Consumers
+Portfolio Service
+
+Notification Service
+
+Analytics
+
+CERTIFICATE_DOWNLOADED
+Consumers
+Analytics
+
+CERTIFICATE_VERIFIED
+Consumers
+Analytics
+
+Domain 9: Portfolio Events
+PORTFOLIO_GENERATED
+Consumers
+Analytics
+
+PORTFOLIO_PUBLISHED
+Consumers
+Activity Feed
+
+PORTFOLIO_VIEWED
+Consumers
+Analytics
+
+Recommendation Engine
+
+Domain 10: Notification Events
+NOTIFICATION_SENT
+Consumers
+Analytics
+
+NOTIFICATION_READ
+Consumers
+Analytics
+
+Domain 11: Admin Events
+USER_SUSPENDED
+Consumers
+Audit
+
+Analytics
+
+ORGANIZATION_APPROVED
+Consumers
+Notification
+
+Analytics
+
+OPPORTUNITY_APPROVED
+Consumers
+Notification
+
+Domain 12: System Events
+FILE_UPLOADED
+Consumers
+Audit
+
+FILE_DELETED
+Consumers
+Audit
+
+SYSTEM_ERROR_OCCURRED
+Consumers
+Monitoring
+
+Alerting
+
+Activity Feed Events
+These events automatically appear in feeds:
+PROFILE_COMPLETED
+
+APPLICATION_SUBMITTED
+
+APPLICATION_ACCEPTED
+
+TASK_COMPLETED
+
+ASSESSMENT_COMPLETED
+
+CERTIFICATE_GENERATED
+
+PORTFOLIO_PUBLISHED
+
+Event Bus Design
+Current MVP
+Node.js EventEmitter
+or
+BullMQ Events
+Future Scale
+Apache Kafka
+or
+AWS EventBridge
+
+
+Tab 16
+SkillBridge Enterprise Permission Catalog v2.0
+Naming Convention
+resource.action
+
+Examples
+student.read
+student.update
+
+opportunity.publish
+
+certificate.generate
+
+
+Identity Domain
+auth.login
+auth.logout
+auth.session.view
+auth.session.revoke
+auth.profile.read
+auth.profile.update
+
+Total: 6
+
+Student Domain
+student.create
+student.read
+student.read.all
+student.update
+student.delete
+
+student.skill.create
+student.skill.update
+student.skill.delete
+
+student.education.create
+student.education.update
+student.education.delete
+
+student.project.create
+student.project.update
+student.project.delete
+
+student.resume.upload
+student.resume.delete
+
+student.achievement.create
+student.achievement.update
+student.achievement.delete
+
+Total: 18
+
+Organization Domain
+organization.create
+organization.read
+organization.read.all
+organization.update
+organization.delete
+
+organization.verify
+organization.reject
+organization.suspend
+
+organization.member.create
+organization.member.update
+organization.member.remove
+
+organization.subscription.manage
+
+Total: 12
+
+Opportunity Domain
+opportunity.create
+opportunity.read
+opportunity.read.all
+
+opportunity.update
+opportunity.delete
+
+opportunity.publish
+opportunity.archive
+opportunity.close
+
+opportunity.approve
+opportunity.reject
+
+opportunity.bookmark
+
+opportunity.search
+
+Total: 12
+
+Application Domain
+application.create
+application.read
+application.read.all
+
+application.withdraw
+
+application.review
+
+application.shortlist
+application.accept
+application.reject
+
+application.note.create
+application.note.read
+application.note.delete
+
+application.bulk.update
+
+Total: 12
+
+Workspace Domain
+workspace.create
+workspace.read
+workspace.update
+workspace.delete
+
+workspace.member.add
+workspace.member.remove
+
+workspace.file.upload
+workspace.file.delete
+
+workspace.discussion.create
+workspace.discussion.update
+workspace.discussion.delete
+
+workspace.comment.create
+workspace.comment.update
+workspace.comment.delete
+
+workspace.milestone.create
+workspace.milestone.update
+workspace.milestone.delete
+
+Total: 18
+
+Task Domain
+task.create
+task.read
+task.update
+task.delete
+
+task.assign
+
+task.submit
+task.resubmit
+
+task.review
+
+task.approve
+task.reject
+
+task.complete
+
+Total: 11
+
+Assessment Domain
+assessment.create
+assessment.read
+assessment.update
+assessment.delete
+
+assessment.review
+assessment.score
+
+assessment.rubric.create
+assessment.rubric.update
+assessment.rubric.delete
+
+assessment.report.generate
+
+Total: 10
+
+Certificate Domain
+certificate.generate
+
+certificate.read
+certificate.read.all
+
+certificate.download
+
+certificate.verify
+
+certificate.reissue
+
+certificate.revoke
+
+certificate.analytics.read
+
+Total: 8
+
+Portfolio Domain
+portfolio.create
+portfolio.read
+portfolio.update
+portfolio.delete
+
+portfolio.publish
+portfolio.unpublish
+
+portfolio.analytics.read
+
+Total: 7
+
+Notification Domain
+notification.read
+
+notification.send
+
+notification.broadcast
+
+notification.preference.update
+
+notification.delete
+
+Total: 5
+
+Analytics Domain
+analytics.student.read
+
+analytics.organization.read
+
+analytics.platform.read
+
+analytics.export
+
+analytics.dashboard.view
+
+Total: 5
+
+Reports Domain
+report.create
+
+report.read
+
+report.download
+
+report.export
+
+report.delete
+
+Total: 5
+
+Admin Domain
+admin.user.suspend
+admin.user.activate
+admin.user.delete
+
+admin.organization.verify
+
+admin.opportunity.moderate
+
+admin.settings.update
+
+admin.announcement.publish
+
+admin.audit.read
+
+Total: 8
+
+Audit Domain
+audit.read
+
+audit.export
+
+audit.archive
+
+Total: 3
+
+Infrastructure Domain
+file.upload
+file.read
+file.delete
+
+search.global
+
+queue.view
+queue.retry
+
+system.health.read
+
+system.metrics.read
+
+Total: 8
+
+Role Mapping
+STUDENT
+student.*
+application.create
+application.read
+application.withdraw
+
+task.read
+task.submit
+task.resubmit
+
+assessment.read
+
+certificate.read
+certificate.download
+
+portfolio.*
+
+notification.read
+
+
+MENTOR
+workspace.*
+
+task.create
+task.assign
+task.review
+
+assessment.*
+
+certificate.generate
+certificate.read
+
+analytics.organization.read
+
+
+COMPANY_RECRUITER
+opportunity.*
+
+application.*
+
+workspace.read
+
+task.read
+
+analytics.organization.read
+
+
+COMPANY_ADMIN
+organization.*
+
+opportunity.*
+
+application.*
+
+workspace.*
+
+analytics.organization.read
+
+report.*
+
+
+SCHOOL_ADMIN
+student.read.all
+
+analytics.*
+
+report.*
+
+organization.read
+
+
+MODERATOR
+organization.verify
+
+opportunity.approve
+opportunity.reject
+
+audit.read
+
+
+ADMIN
+ALL BUSINESS PERMISSIONS
+
+
+SUPER_ADMIN
+ALL PERMISSIONS
++
+SYSTEM PERMISSIONS
+
