@@ -15,10 +15,9 @@ SkillBridge is an enterprise SaaS platform designed to align higher education wi
 7. [Repository Structure](#repository-structure)
 8. [API Reference](#api-reference)
 9. [Redis Caching and Performance Architecture](#redis-caching-and-performance-architecture)
-10. [Environment Variables](#environment-variables)
-11. [Docker Orchestration and Local Setup](#docker-orchestration-and-local-setup)
-12. [Security, Governance, and Verification](#security-governance-and-verification)
-13. [License](#license)
+10. [Docker Orchestration and Local Setup](#docker-orchestration-and-local-setup)
+11. [Security, Governance, and Verification](#security-governance-and-verification)
+12. [License](#license)
 
 ---
 
@@ -39,55 +38,67 @@ The following UML component and deployment diagram illustrates the cloud-native 
 
 ```mermaid
 graph TD
-    subgraph Client_Tier ["Presentation Layer (Next.js / React / TypeScript)"]
-        StudentPortal["Student Dashboard & Opportunity Portal"]
-        OrgPortal["Organization & Mentor Workspace"]
-        InstitutionPortal["Institutional Governance & Analytics Console"]
-        PublicPortfolio["Public Dynamic Portfolio & Certificate Verifier"]
+    %% Custom Vibrant Color Classes
+    classDef clientStyle fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#ffffff;
+    classDef gatewayStyle fill:#5b21b6,stroke:#a78bfa,stroke-width:2px,color:#ffffff;
+    classDef serviceStyle fill:#065f46,stroke:#34d399,stroke-width:2px,color:#ffffff;
+    classDef dbStyle fill:#831843,stroke:#f472b6,stroke-width:2px,color:#ffffff;
+    classDef cacheStyle fill:#9a3412,stroke:#fb923c,stroke-width:2px,color:#ffffff;
+    classDef cloudStyle fill:#075985,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+
+    subgraph Client_Tier ["Presentation Layer (Next.js 15 / React 19 / TypeScript)"]
+        StudentPortal["Student Dashboard &\nOpportunity Portal"]:::clientStyle
+        OrgPortal["Organization &\nMentor Workspace"]:::clientStyle
+        InstitutionPortal["Institutional Governance\n& Analytics Console"]:::clientStyle
+        PublicPortfolio["Public Dynamic Portfolio\n& Certificate Verifier"]:::clientStyle
     end
 
     subgraph Gateway_Tier ["API Gateway & Middleware Layer (Express.js / TypeScript)"]
-        Router["Express API Router (/api/v1)"]
-        AuthGuard["JWT Authentication & RBAC Filter"]
-        RateLimiter["Redis-Backed Rate Limiting"]
-        ValidationPipe["Zod Schema Validation Pipeline"]
-        UploadHandler["Multer S3 Stream Handler"]
-        Logger["Winston & Morgan Audit Logger"]
+        Router["Express API Router\n(/api/v1)"]:::gatewayStyle
+        AuthGuard["JWT Authentication &\nRBAC Security Filter"]:::gatewayStyle
+        RateLimiter["Redis-Backed Distributed\nRate Limiting Engine"]:::gatewayStyle
+        ValidationPipe["Zod Schema\nValidation Pipeline"]:::gatewayStyle
+        UploadHandler["Multer & S3\nStream Upload Handler"]:::gatewayStyle
+        Logger["Winston & Morgan\nAudit Logger"]:::gatewayStyle
     end
 
     subgraph Service_Tier ["Domain Microservices & Business Logic Layer"]
-        AuthService["Authentication & Session Service"]
-        StudentService["Student Profile & Skill Graph Service"]
-        OrgService["Organization & Branch Management Service"]
-        OpportunityService["Opportunity Matching & Discovery Engine"]
-        ApplicationService["Application Workflow & Lifecycle Manager"]
-        TaskService["Task Assignment & Submission Pipeline"]
-        AssessmentService["Assessment Engine & Rubric Scoring"]
-        CertificateService["Certificate Generation & Verification Service"]
-        PortfolioService["Portfolio Aggregator & Analytics Engine"]
-        NotificationService["Notification & Dispatch Worker"]
+        AuthService["Auth & Session\nService"]:::serviceStyle
+        StudentService["Student Profile &\nSkill Graph Service"]:::serviceStyle
+        OrgService["Organization & Branch\nManagement Service"]:::serviceStyle
+        OpportunityService["Opportunity Matching\n& Search Engine"]:::serviceStyle
+        ApplicationService["Application Workflow\n& Lifecycle Manager"]:::serviceStyle
+        TaskService["Task Assignment &\nSubmission Pipeline"]:::serviceStyle
+        AssessmentService["Assessment Engine &\nRubric Scoring"]:::serviceStyle
+        CertificateService["Certificate Generation\n& Verification Service"]:::serviceStyle
+        PortfolioService["Portfolio Aggregator\n& Analytics Engine"]:::serviceStyle
+        NotificationService["Notification &\nDispatch Worker"]:::serviceStyle
     end
 
-    subgraph Persistence_Tier ["Data, Cache, and Object Storage Layer"]
-        PrismaClient["Prisma ORM Layer (v5)"]
-        PostgresDB[("PostgreSQL Relational Database (Port 5432)")]
-        RedisCache[("Redis In-Memory Cache & Session Store (Port 6379)")]
-        AWSS3[("AWS S3 / Cloud Storage (Artifacts & Documents)")]
+    subgraph Persistence_Tier ["Data, Cache, and Cloud Storage Layer"]
+        PrismaClient["Prisma ORM Layer (v5)"]:::dbStyle
+        PostgresDB[("PostgreSQL Relational Database\n(Port 5432)")]:::dbStyle
+        RedisCache[("Redis In-Memory Cache &\nSession Store (Port 6379)")]:::cacheStyle
+        AWSS3[("AWS S3 / Cloud Storage\n(Artifacts & Submissions)")]:::cloudStyle
     end
 
-    %% Client to Gateway
+    %% Subgraph Container Styling
+    style Client_Tier fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#93c5fd
+    style Gateway_Tier fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#c4b5fd
+    style Service_Tier fill:#062e24,stroke:#10b981,stroke-width:2px,color:#6ee7b7
+    style Persistence_Tier fill:#500724,stroke:#ec4899,stroke-width:2px,color:#f472b6
+
+    %% Data Flow Connections
     StudentPortal --> Router
     OrgPortal --> Router
     InstitutionPortal --> Router
     PublicPortfolio --> Router
 
-    %% Gateway Interceptors
     Router --> RateLimiter
     RateLimiter --> AuthGuard
     AuthGuard --> ValidationPipe
     ValidationPipe --> Logger
 
-    %% Gateway to Domain Services
     Logger --> AuthService
     Logger --> StudentService
     Logger --> OrgService
@@ -99,7 +110,6 @@ graph TD
     Logger --> PortfolioService
     Logger --> NotificationService
 
-    %% Service to Storage
     AuthService --> PrismaClient
     AuthService --> RedisCache
     StudentService --> PrismaClient
@@ -481,38 +491,6 @@ SkillBridge utilizes Redis for high-throughput performance optimization:
 2. **Opportunity Feed Caching**: Active opportunity listings cached with time-to-live (TTL) invalidation on new publications.
 3. **API Rate Limiting**: Distributed token bucket rate limiting preventing brute-force and DDoS attacks.
 4. **Portfolio Read Caching**: Public portfolio pages cached in-memory with background revalidation.
-
----
-
-## Environment Variables
-
-### Backend Configuration (`backend/.env`)
-
-```ini
-# Server Configuration
-PORT=5000
-NODE_ENV=development
-
-# Database Connection (PostgreSQL)
-DATABASE_URL="postgresql://skillbridge_user:skillbridge_password@localhost:5432/skillbridge_dev?schema=public"
-
-# Cache Configuration (Redis)
-REDIS_URL="redis://localhost:6379"
-
-# Security & Tokens
-JWT_SECRET="your-super-secret-jwt-key-change-in-production"
-JWT_EXPIRES_IN="7d"
-
-# AWS S3 Storage
-AWS_ACCESS_KEY_ID="your-aws-access-key-id"
-AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
-AWS_REGION="us-east-1"
-AWS_S3_BUCKET_NAME="skillbridge-dev-bucket"
-
-# Email Service
-EMAIL_API_KEY="your-email-api-key"
-EMAIL_FROM="no-reply@skillbridge.com"
-```
 
 ---
 
